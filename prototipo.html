@@ -1,0 +1,541 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ArenaHub — Protótipo Navegável</title>
+<style>
+:root{--bg:#0e1a13;--card:#16241c;--line:#24382c;--grn:#22c55e;--txt:#f0fdf4;--mut:#9db8a8;--gph:#1a2820;--znc:#d4d4d8;--gold:#e8c968;--red:#ef4444;--drk:#04170b}
+*{box-sizing:border-box;margin:0;-webkit-tap-highlight-color:transparent}
+body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:#0a130e;color:var(--txt);min-height:100vh}
+/* ===== topo ===== */
+header{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:14px 20px;border-bottom:1px solid var(--line);position:sticky;top:0;background:#0a130ef2;z-index:50}
+.brand{font-weight:800;font-size:17px}.brand b{color:var(--grn)}
+.flows{display:flex;gap:8px;flex-wrap:wrap}
+.fbtn{background:var(--card);border:1px solid var(--line);color:var(--znc);padding:8px 14px;border-radius:20px;font-size:13px;cursor:pointer;font-weight:600}
+.fbtn.on{background:var(--grn);border-color:var(--grn);color:var(--drk)}
+.fbtn.alt{margin-left:auto}
+/* ===== palco ===== */
+main{display:flex;justify-content:center;padding:28px 16px;gap:34px;flex-wrap:wrap}
+.shell{display:none}
+.shell.on{display:block}
+body.grid .shell{display:block}
+.label{color:var(--mut);font-size:12.5px;font-weight:700;letter-spacing:.4px;margin-bottom:8px;text-transform:uppercase}
+.phone{width:390px;height:844px;background:var(--bg);border:1px solid var(--line);border-radius:28px;overflow:hidden;position:relative;flex:none;box-shadow:0 20px 60px rgba(0,0,0,.45)}
+.scr{height:100%;overflow-y:auto;padding:18px 16px 96px;scrollbar-width:none}
+.scr::-webkit-scrollbar{display:none}
+.scr.center{display:flex;flex-direction:column;justify-content:center;padding-bottom:18px}
+.scr.nopad{padding:0 0 96px}
+@media(max-width:430px){main{padding:10px 0}.phone{width:100vw;height:calc(100vh - 62px);border-radius:0;border:0}}
+/* ===== componentes ===== */
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px}
+.gcard{background:var(--gph);border:1px solid var(--line);border-radius:16px;padding:16px}
+.cta{display:block;background:var(--grn);color:var(--drk);font-weight:800;border-radius:14px;padding:15px;text-align:center;cursor:pointer;border:0;width:100%;font-size:15px;font-family:inherit}
+.cta small{display:block;font-weight:600;font-size:11px;opacity:.75;margin-top:2px}
+.outline{background:none;border:1px solid var(--red);color:var(--red);font-weight:700;border-radius:12px;padding:12px;text-align:center;cursor:pointer;width:100%;font-size:13.5px;font-family:inherit}
+.outline.g{border-color:var(--grn);color:var(--grn)}
+.input{background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:13px 14px;color:var(--mut);font-size:14px;margin-top:6px}
+.lbl{color:var(--mut);font-size:10.5px;font-weight:700;letter-spacing:.5px;margin-top:14px}
+h2.sec{font-size:16px;font-weight:800;margin:22px 0 10px}
+.muted{color:var(--mut)}.z{color:var(--znc)}.g{color:var(--grn)}.gold{color:var(--gold)}
+.row{display:flex;align-items:center;gap:8px}
+.sb{justify-content:space-between}
+.hr{display:flex;gap:10px;overflow-x:auto;padding-bottom:4px;scrollbar-width:none}
+.hr::-webkit-scrollbar{display:none}
+.pill{background:var(--gph);border:1px solid var(--line);border-radius:16px;padding:10px 16px;flex:none;cursor:pointer}
+.pill b{font-size:13px}.pill span{display:block;font-size:11px;color:var(--znc)}
+.pill.on{background:var(--grn);border-color:var(--grn)}.pill.on b,.pill.on span{color:var(--drk)}
+.day{background:var(--gph);border:1px solid var(--line);border-radius:14px;width:58px;padding:10px 0;text-align:center;flex:none;cursor:pointer}
+.day b{font-size:16px}.day span{display:block;font-size:10.5px;color:var(--znc)}
+.day.on{background:var(--grn);border-color:var(--grn)}.day.on b,.day.on span{color:var(--drk)}
+.hgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.hour{background:var(--gph);border:1px solid var(--line);border-radius:12px;padding:12px 0;text-align:center;font-weight:600;font-size:14px;cursor:pointer}
+.hour.on{background:var(--grn);border-color:var(--grn);color:var(--drk);font-weight:800}
+.tag{background:#1c2b22;border-radius:6px;padding:3px 8px;font-size:10.5px;color:var(--znc)}
+.tabbar{position:absolute;bottom:0;left:0;right:0;height:62px;background:var(--card);border-top:1px solid var(--line);display:flex;justify-content:space-around;align-items:center;z-index:5}
+.tab{color:var(--mut);font-size:10px;text-align:center;cursor:pointer}
+.tab .i{font-size:17px;display:block}
+.tab.on{color:var(--grn);font-weight:700}
+.foot{position:absolute;bottom:0;left:0;right:0;background:#0e1a13f7;border-top:1px solid var(--line);padding:14px 16px;z-index:5}
+.radio{width:20px;height:20px;border-radius:50%;border:2px solid var(--mut);flex:none;display:flex;align-items:center;justify-content:center}
+.payopt.on .radio{border-color:var(--grn)}
+.payopt.on .radio::after{content:'';width:10px;height:10px;border-radius:50%;background:var(--grn)}
+.payopt{display:flex;align-items:center;gap:12px;padding:14px 0;cursor:pointer;border-top:1px solid var(--line)}
+.payopt:first-child{border-top:0}
+.payopt .t{flex:1;font-size:13.5px;color:var(--znc)}
+.payopt.on .t{color:var(--txt);font-weight:700}
+.stat{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px}
+.stat b{font-size:20px;display:block;margin-top:2px}
+.stat span{font-size:11px;color:var(--mut)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.item{display:flex;justify-content:space-between;align-items:center;padding:11px 0;border-top:1px solid var(--line);font-size:13px}
+.item:first-of-type{border-top:0}
+.badge{font-size:10px;font-weight:700;padding:3px 8px;border-radius:6px}
+.b-g{background:#132e1d;color:var(--grn)}.b-y{background:#2e2713;color:var(--gold)}.b-r{background:#2e1313;color:var(--red)}.b-b{background:#13232e;color:#60a5fa}
+.avatar{width:36px;height:36px;border-radius:50%;background:#1c2b22;border:1px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:var(--grn);flex:none}
+.bars{display:flex;gap:8px;align-items:flex-end;height:90px;margin-top:12px}
+.bars div{flex:1;background:#14532d;border-radius:6px 6px 0 0}
+.bars div.hot{background:var(--grn)}
+.slot{border-left:3px solid var(--grn);background:var(--card);border-radius:0 12px 12px 0;padding:10px 12px;margin:6px 0 14px}
+.slot.p{border-left-color:var(--gold)}
+.slot.free{border:1px dashed var(--line);border-radius:12px;color:var(--mut);text-align:center;padding:12px;cursor:pointer}
+.met{flex:1;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:11px 4px;text-align:center;font-size:12.5px;cursor:pointer}
+.met.on{background:#132e1d;border-color:var(--grn);font-weight:700}
+.stepper{display:flex;align-items:center;background:var(--bg);border:1px solid var(--line);border-radius:12px}
+.stepper button{background:none;border:0;color:var(--grn);font-size:19px;font-weight:800;width:38px;height:38px;cursor:pointer}
+.stepper b{min-width:26px;text-align:center;font-size:15px}
+.hero{height:250px;background:linear-gradient(160deg,#1e4d2e,#0a1f12);position:relative}
+.hero .emoji{position:absolute;top:44px;left:0;right:0;text-align:center;font-size:70px}
+.hero .shade{position:absolute;bottom:0;left:0;right:0;height:130px;background:linear-gradient(to top,rgba(0,0,0,.85),rgba(0,0,0,.4),transparent)}
+.hero .info{position:absolute;bottom:22px;left:16px;right:16px}
+.hero .back{position:absolute;top:14px;left:14px;width:38px;height:38px;border-radius:50%;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;cursor:pointer}
+.dots{position:absolute;bottom:8px;left:0;right:0;display:flex;justify-content:center;gap:6px}
+.dots i{width:6px;height:6px;border-radius:3px;background:rgba(255,255,255,.4)}
+.dots i.on{width:16px;background:#fff}
+.evb{display:flex;align-items:center;gap:12px;background:var(--gph);border:1px solid rgba(212,175,55,.55);border-radius:16px;padding:14px;cursor:pointer}
+.circ{width:62px;height:62px;border-radius:50%;background:#1c2b22;border:1px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:25px;margin:0 auto 6px;cursor:pointer}
+.banner{border-radius:12px;padding:18px;background:linear-gradient(120deg,#14532d,#0b2e19);position:relative;overflow:hidden}
+.banner::after{content:'';position:absolute;right:-30px;top:-30px;width:130px;height:130px;border-radius:50%;background:rgba(255,255,255,.08)}
+.acard{display:flex;gap:12px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:10px;cursor:pointer}
+.ph{width:88px;height:88px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:32px;flex:none}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">Arena<b>Hub</b> · Protótipo</div>
+  <div class="flows">
+    <button class="fbtn on" data-goto="p-login">👤 Jogador</button>
+    <button class="fbtn" data-goto="p-adash">🏟️ Dono da Arena</button>
+    <button class="fbtn" data-goto="p-mdash">🛡️ Admin</button>
+  </div>
+  <button class="fbtn alt" onclick="document.body.classList.toggle('grid')">🔳 Ver todas as telas</button>
+</header>
+<main>
+
+<!-- ============ FLUXO DO JOGADOR ============ -->
+<div class="shell on" id="p-login" data-flow="p-login"><div class="label">01 · Jogador · Login</div><div class="phone">
+  <div class="scr center">
+    <div style="text-align:center;font-size:36px;font-weight:800">Arena<span class="g">Hub</span></div>
+    <p class="muted" style="text-align:center;font-size:12.5px;margin:6px 0 28px">Encontre sua quadra. Chame os amigos. Divida no link.</p>
+    <div class="input">E-mail</div>
+    <div class="input">Senha</div>
+    <button class="cta" style="margin-top:16px" data-goto="p-explorar">Entrar</button>
+    <p class="g" style="text-align:center;margin-top:18px;font-size:14px;cursor:pointer">Criar conta grátis →</p>
+  </div>
+</div></div>
+
+<div class="shell" id="p-explorar" data-flow="p-login"><div class="label">02 · Jogador · Explorar</div><div class="phone">
+  <div class="scr">
+    <div class="row" style="font-size:14px"><span>📍</span><span class="z">Jogar em:</span><b>Curitiba, PR</b><span class="g" style="font-size:10px">▼</span></div>
+    <div class="input" style="border-radius:16px;margin-top:12px">Buscar arenas, esportes ou bairros...</div>
+    <div class="row sb" style="margin:16px 0;text-align:center">
+      <div><div class="circ">⚽</div><span class="z" style="font-size:11.5px">Futebol</span></div>
+      <div><div class="circ">🎾</div><span class="z" style="font-size:11.5px">Beach Tennis</span></div>
+      <div><div class="circ">🏐</div><span class="z" style="font-size:11.5px">Vôlei</span></div>
+      <div><div class="circ">🏀</div><span class="z" style="font-size:11.5px">Basquete</span></div>
+    </div>
+    <div class="banner">
+      <div style="font-size:10.5px;font-weight:800">🔥 PROMO</div>
+      <div style="font-size:19px;font-weight:800">Horários de Almoço</div>
+      <div style="font-size:12.5px;color:#d9f5e2">até 30% OFF nas quadras das 11h às 14h</div>
+    </div>
+    <h2 class="sec">Rachas precisando de gente hoje</h2>
+    <div class="hr">
+      <div class="card" style="min-width:196px;padding:14px" data-goto="p-link">
+        <b style="font-size:14px">Arena Beira-Mar</b>
+        <div class="z" style="font-size:11.5px;margin-top:3px">futebol · Hoje às 20:00</div>
+        <div class="g" style="font-size:12.5px;font-weight:800;margin-top:9px">3 vagas restantes</div>
+        <div style="font-size:15px;font-weight:800">R$ 40,00 <span class="z" style="font-size:11px;font-weight:400">/ pessoa</span></div>
+      </div>
+      <div class="card" style="min-width:196px;padding:14px" data-goto="p-link">
+        <b style="font-size:14px">CE Ponta Grossa</b>
+        <div class="z" style="font-size:11.5px;margin-top:3px">beach tennis · Hoje às 19:00</div>
+        <div class="g" style="font-size:12.5px;font-weight:800;margin-top:9px">1 vaga restante</div>
+        <div style="font-size:15px;font-weight:800">R$ 30,00 <span class="z" style="font-size:11px;font-weight:400">/ pessoa</span></div>
+      </div>
+    </div>
+    <h2 class="sec">Todas as Arenas na sua região</h2>
+    <div class="acard" data-goto="p-arena" style="margin-bottom:12px">
+      <div class="ph" style="background:linear-gradient(140deg,#14532d,#0b1710)">⚽</div>
+      <div style="flex:1">
+        <div class="row sb"><b style="font-size:15px">Arena Beira-Mar</b><span class="z" style="font-size:12px">⭐ 4.9</span></div>
+        <div class="row" style="margin-top:6px"><span class="tag">futebol</span><span class="tag">futevôlei</span></div>
+        <div class="g" style="font-size:12.5px;margin-top:9px">A partir de <b>R$ 140,00/h</b></div>
+      </div>
+    </div>
+    <div class="acard" data-goto="p-arena">
+      <div class="ph" style="background:linear-gradient(140deg,#7a5c1e,#0b1710)">🎾</div>
+      <div style="flex:1">
+        <div class="row sb"><b style="font-size:15px">CE Ponta Grossa</b><span class="z" style="font-size:12px">⭐ 4.7</span></div>
+        <div class="row" style="margin-top:6px"><span class="tag">beach tennis</span><span class="tag">vôlei</span></div>
+        <div class="g" style="font-size:12.5px;margin-top:9px">A partir de <b>R$ 120,00/h</b></div>
+      </div>
+    </div>
+  </div>
+  <div class="tabbar">
+    <div class="tab on"><span class="i">🔍</span>Explorar</div>
+    <div class="tab" data-goto="p-reservas"><span class="i">📅</span>Reservas</div>
+    <div class="tab"><span class="i">👤</span>Perfil</div>
+  </div>
+</div></div>
+
+<div class="shell" id="p-arena" data-flow="p-login"><div class="label">03 · Jogador · Detalhes da Arena</div><div class="phone">
+  <div class="scr nopad" style="padding-bottom:110px">
+    <div class="hero">
+      <div class="emoji">⚽</div><div class="shade"></div>
+      <div class="back" data-goto="p-explorar">←</div>
+      <div class="info">
+        <div style="font-size:24px;font-weight:800">Arena Beira-Mar</div>
+        <div style="font-size:13px;font-weight:600;margin-top:3px">⭐ 4.9 · 120 avaliações</div>
+        <div style="font-size:12px;opacity:.75">Av. das Torres, 1200 — Curitiba</div>
+      </div>
+      <div class="dots"><i class="on"></i><i></i><i></i></div>
+    </div>
+    <div style="padding:0 16px">
+      <h2 class="sec">Quadras</h2>
+      <div class="hr">
+        <div class="pill on"><b>Quadra 1 — Society</b><span>R$ 160,00/h</span></div>
+        <div class="pill"><b>Quadra 2 — Society</b><span>R$ 140,00/h</span></div>
+        <div class="pill"><b>Areia 1 — Futevôlei</b><span>R$ 90,00/h</span></div>
+      </div>
+      <div class="evb" style="margin-top:16px">
+        <span style="font-size:24px">🏆</span>
+        <div style="flex:1">
+          <div class="gold" style="font-size:11.5px;font-weight:800;letter-spacing:.5px">EVENTOS DA ARENA</div>
+          <div class="z" style="font-size:12px;margin-top:3px">Copa de Inverno Society — Inscrições abertas!</div>
+        </div><span class="z" style="font-size:18px">›</span>
+      </div>
+      <h2 class="sec">Data</h2>
+      <div class="hr">
+        <div class="day on"><b>08</b><span>Hoje</span></div>
+        <div class="day"><b>09</b><span>qui</span></div>
+        <div class="day"><b>10</b><span>sex</span></div>
+        <div class="day"><b>11</b><span>sáb</span></div>
+        <div class="day"><b>12</b><span>dom</span></div>
+      </div>
+      <h2 class="sec">Horários</h2>
+      <div class="hgrid">
+        <div class="hour">16:00</div><div class="hour">17:00</div><div class="hour">18:00</div><div class="hour">19:00</div>
+        <div class="hour on">20:00</div><div class="hour">21:00</div><div class="hour">22:00</div>
+      </div>
+      <h2 class="sec">Pagamento</h2>
+      <div class="gcard" style="padding:2px 16px">
+        <div class="payopt on"><span>🔗</span><span class="t">Dividir por link com os amigos</span><span class="radio"></span></div>
+        <div class="payopt"><span>💳</span><span class="t">Pagar tudo agora (Pix/cartão)</span><span class="radio"></span></div>
+        <div class="payopt"><span>🏟️</span><span class="t">Pagar presencialmente na arena</span><span class="radio"></span></div>
+        <div class="row" style="justify-content:center;gap:12px;padding:14px 0;border-top:1px solid var(--line)">
+          <span class="z" style="font-size:13px">Dividir entre</span>
+          <div class="stepper"><button onclick="step(-1)">−</button><b id="np">4</b><button onclick="step(1)">+</button></div>
+          <span class="z" style="font-size:13px">pessoas</span>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="foot">
+    <button class="cta" data-goto="p-reserva">Reservar Horário por R$ <span id="cp">40,00</span>/pessoa<small>total R$ 160,00 · 20:00 · <span id="np2">4</span> pessoas</small></button>
+  </div>
+</div></div>
+
+<div class="shell" id="p-reserva" data-flow="p-login"><div class="label">04 · Jogador · Reserva criada — dividir</div><div class="phone">
+  <div class="scr">
+    <div class="row" style="gap:10px;margin-bottom:14px"><span style="cursor:pointer" data-goto="p-explorar">←</span><b style="font-size:18px">Reserva</b></div>
+    <div class="card">
+      <b style="font-size:20px">Arena Beira-Mar</b>
+      <div class="z" style="font-size:12.5px;margin-top:3px">Quadra 1 — Society · 08/07 · 20:00–21:00</div>
+      <div class="muted" style="font-weight:700;font-size:13.5px;margin-top:10px">⏳ Aguardando pagamentos</div>
+      <div style="font-size:24px;font-weight:800;margin-top:4px">R$ 160,00</div>
+    </div>
+    <button class="cta" style="margin-top:14px" data-goto="p-link">🔗 Enviar link para os amigos</button>
+    <p class="muted" style="text-align:center;font-size:11.5px;margin-top:8px">Cada um abre o link, coloca nome + telefone e paga R$ 40,00</p>
+    <div class="card" style="margin-top:14px">
+      <b style="font-size:14.5px">Cotas (2/4)</b>
+      <div class="item">Rafa · ⚡ Pix <span class="g" style="font-weight:600">pago ✔</span></div>
+      <div class="item">Duda · 🏟️ No local <span class="g" style="font-weight:600">paga no local</span></div>
+      <div class="item muted">— vaga aberta <span>aguardando</span></div>
+      <div class="item muted">— vaga aberta <span>aguardando</span></div>
+    </div>
+    <button class="outline" style="margin-top:18px">Cancelar reserva</button>
+  </div>
+</div></div>
+
+<div class="shell" id="p-link" data-flow="p-login"><div class="label">05 · Convidado · Link de pagamento (web, sem app)</div><div class="phone">
+  <div class="scr">
+    <div class="card" style="padding:8px 12px;font-size:11.5px;border-radius:8px" class="muted">🔒 arenahub.app/s/aB3xK9…</div>
+    <div style="font-size:19px;font-weight:800;margin:14px 0">Arena<span class="g">Hub</span></div>
+    <div class="card">
+      <b style="font-size:17px">Arena Beira-Mar</b>
+      <div class="z" style="font-size:12px;margin-top:3px">Quadra 1 — Society · 08/07 · 20:00–21:00</div>
+      <div class="g" style="font-size:30px;font-weight:800;margin-top:8px">R$ 40,00</div>
+      <div class="muted" style="font-size:11.5px">sua parte (total da quadra: R$ 160,00)</div>
+    </div>
+    <div class="card" style="margin-top:14px">
+      <b style="font-size:15.5px">Entrar na divisão</b>
+      <div class="lbl">SEU NOME</div><div class="input">Ex.: João Silva</div>
+      <div class="lbl">TELEFONE (WHATSAPP)</div><div class="input">(41) 99999-9999</div>
+      <div class="lbl">FORMA DE PAGAMENTO</div>
+      <div class="row" style="margin-top:8px">
+        <div class="met on">⚡ Pix</div><div class="met">💳 Cartão</div><div class="met">🏟️ No local</div>
+      </div>
+      <button class="cta" style="margin-top:14px" onclick="this.outerHTML='<p style=\'text-align:center;color:var(--grn);font-weight:700;padding:10px\'>✔ Presença confirmada! Pague sua cota.</p>'">Pagar minha parte</button>
+    </div>
+    <div class="card" style="margin-top:14px">
+      <b style="font-size:13.5px">Quem já entrou</b>
+      <div class="item">Rafa · Pix <span class="g" style="font-weight:600">✔ ok</span></div>
+      <div class="item">Duda · No local <span class="g" style="font-weight:600">✔ ok</span></div>
+      <div class="item muted">2 vagas restantes<span></span></div>
+    </div>
+  </div>
+</div></div>
+
+<div class="shell" id="p-reservas" data-flow="p-login"><div class="label">06 · Jogador · Minhas Reservas</div><div class="phone">
+  <div class="scr">
+    <b style="font-size:20px">Minhas Reservas</b>
+    <div class="card" style="margin-top:14px;cursor:pointer" data-goto="p-reserva">
+      <b style="font-size:15px">Arena Beira-Mar</b>
+      <div class="z" style="font-size:12px;margin-top:2px">Quadra 1 — Society · 08/07 · 20:00–21:00</div>
+      <div class="row sb" style="margin-top:9px"><span class="muted" style="font-weight:600;font-size:13px">⏳ Aguardando pagamento</span><b style="font-size:14.5px">R$ 160,00</b></div>
+      <div class="g" style="font-size:12px;margin-top:5px">Divisão: 2/4 cotas ok</div>
+    </div>
+    <div class="card" style="margin-top:12px">
+      <b style="font-size:15px">CE Ponta Grossa</b>
+      <div class="z" style="font-size:12px;margin-top:2px">BT 01 · 05/07 · 19:00–20:00</div>
+      <div class="row sb" style="margin-top:9px"><span class="g" style="font-weight:600;font-size:13px">Confirmada ✔</span><b style="font-size:14.5px">R$ 120,00</b></div>
+    </div>
+    <div class="card" style="margin-top:12px">
+      <b style="font-size:15px">Arena Beira-Mar</b>
+      <div class="z" style="font-size:12px;margin-top:2px">Areia 1 · 28/06 · 18:00–19:00</div>
+      <div class="row sb" style="margin-top:9px"><span class="muted" style="font-weight:600;font-size:13px">Realizada</span><b style="font-size:14.5px">R$ 90,00</b></div>
+    </div>
+  </div>
+  <div class="tabbar">
+    <div class="tab" data-goto="p-explorar"><span class="i">🔍</span>Explorar</div>
+    <div class="tab on"><span class="i">📅</span>Reservas</div>
+    <div class="tab"><span class="i">👤</span>Perfil</div>
+  </div>
+</div></div>
+
+<!-- ============ FLUXO DO DONO DA ARENA ============ -->
+<div class="shell" id="p-adash" data-flow="p-adash"><div class="label">07 · Arena · Painel do dia</div><div class="phone">
+  <div class="scr">
+    <div class="muted" style="font-size:12px">Olá, Carlos 👋</div>
+    <b style="font-size:20px">Arena Beira-Mar</b>
+    <div class="grid2" style="margin-top:14px">
+      <div class="stat"><span>RESERVAS HOJE</span><b>8</b></div>
+      <div class="stat"><span>OCUPAÇÃO</span><b class="g">72%</b></div>
+      <div class="stat"><span>RECEITA DO DIA</span><b>R$ 1.240</b></div>
+      <div class="stat"><span>NOVOS CLIENTES</span><b>5</b></div>
+    </div>
+    <h2 class="sec">Próximas reservas</h2>
+    <div class="card" style="padding:4px 16px">
+      <div class="item"><div><b>19:00 · Quadra 1</b><div class="muted" style="font-size:11.5px">João Souza · 4 pessoas</div></div><span class="badge b-g">PAGO</span></div>
+      <div class="item"><div><b>20:00 · Quadra 1</b><div class="muted" style="font-size:11.5px">Jogador Demo · divisão 2/4</div></div><span class="badge b-y">PARCIAL</span></div>
+      <div class="item"><div><b>21:00 · Areia 1</b><div class="muted" style="font-size:11.5px">Marcos Lima · 2 pessoas</div></div><span class="badge b-b">NO LOCAL</span></div>
+    </div>
+    <button class="outline g" style="margin-top:16px" data-goto="p-aquadra">+ Cadastrar nova quadra</button>
+  </div>
+  <div class="tabbar">
+    <div class="tab on"><span class="i">🏠</span>Início</div>
+    <div class="tab" data-goto="p-agenda"><span class="i">🗓️</span>Agenda</div>
+    <div class="tab" data-goto="p-aquadra"><span class="i">🏟️</span>Quadras</div>
+    <div class="tab" data-goto="p-afin"><span class="i">💰</span>Financeiro</div>
+  </div>
+</div></div>
+
+<div class="shell" id="p-agenda" data-flow="p-adash"><div class="label">08 · Arena · Agenda da quadra</div><div class="phone">
+  <div class="scr">
+    <b style="font-size:20px">Agenda</b>
+    <div class="hr" style="margin-top:12px">
+      <div class="pill on"><b>Quadra 1</b></div><div class="pill"><b>Quadra 2</b></div><div class="pill"><b>Areia 1</b></div>
+    </div>
+    <div class="hr" style="margin-top:12px">
+      <div class="day on"><b>08</b><span>Hoje</span></div>
+      <div class="day"><b>09</b><span>qui</span></div>
+      <div class="day"><b>10</b><span>sex</span></div>
+      <div class="day"><b>11</b><span>sáb</span></div>
+    </div>
+    <h2 class="sec">Linha do tempo</h2>
+    <div class="muted" style="font-size:11px">18:00</div>
+    <div class="slot free">+ Livre — toque para bloquear ou reservar manualmente</div>
+    <div class="muted" style="font-size:11px">19:00</div>
+    <div class="slot"><div class="row sb"><b style="font-size:13.5px">João Souza</b><span class="badge b-g">PAGO</span></div><div class="muted" style="font-size:11.5px">4 pessoas · R$ 160,00 · via app</div></div>
+    <div class="muted" style="font-size:11px">20:00</div>
+    <div class="slot p"><div class="row sb"><b style="font-size:13.5px">Jogador Demo</b><span class="badge b-y">DIVISÃO 2/4</span></div><div class="muted" style="font-size:11.5px">R$ 160,00 · link de pagamento ativo</div></div>
+    <div class="muted" style="font-size:11px">21:00</div>
+    <div class="slot free">+ Livre — toque para bloquear ou reservar manualmente</div>
+  </div>
+  <div class="tabbar">
+    <div class="tab" data-goto="p-adash"><span class="i">🏠</span>Início</div>
+    <div class="tab on"><span class="i">🗓️</span>Agenda</div>
+    <div class="tab" data-goto="p-aquadra"><span class="i">🏟️</span>Quadras</div>
+    <div class="tab" data-goto="p-afin"><span class="i">💰</span>Financeiro</div>
+  </div>
+</div></div>
+
+<div class="shell" id="p-aquadra" data-flow="p-adash"><div class="label">09 · Arena · Cadastro de quadra</div><div class="phone">
+  <div class="scr">
+    <div class="row" style="gap:10px"><span style="cursor:pointer" data-goto="p-adash">←</span><b style="font-size:20px">Nova quadra</b></div>
+    <div class="lbl">NOME DA QUADRA</div><div class="input">Ex.: Quadra 3 — Society</div>
+    <div class="lbl">ESPORTE</div>
+    <div class="row" style="margin-top:8px;flex-wrap:wrap">
+      <div class="met on" style="flex:none;padding:9px 14px">⚽ Futebol</div>
+      <div class="met" style="flex:none;padding:9px 14px">🎾 Beach Tennis</div>
+      <div class="met" style="flex:none;padding:9px 14px">🏐 Vôlei</div>
+      <div class="met" style="flex:none;padding:9px 14px">🏀 Basquete</div>
+    </div>
+    <div class="lbl">PREÇO POR HORA</div><div class="input">R$ 160,00</div>
+    <div class="row" style="gap:10px">
+      <div style="flex:1"><div class="lbl">ABRE ÀS</div><div class="input">08:00</div></div>
+      <div style="flex:1"><div class="lbl">FECHA ÀS</div><div class="input">23:00</div></div>
+    </div>
+    <div class="lbl">FOTOS DA QUADRA</div>
+    <div style="border:1px dashed var(--line);border-radius:12px;padding:26px;text-align:center;color:var(--mut);font-size:12.5px;margin-top:8px">📷 Toque para adicionar fotos<br><span style="font-size:11px">os jogadores veem no carrossel da arena</span></div>
+    <button class="cta" style="margin-top:20px" data-goto="p-adash">Salvar quadra</button>
+  </div>
+  <div class="tabbar">
+    <div class="tab" data-goto="p-adash"><span class="i">🏠</span>Início</div>
+    <div class="tab" data-goto="p-agenda"><span class="i">🗓️</span>Agenda</div>
+    <div class="tab on"><span class="i">🏟️</span>Quadras</div>
+    <div class="tab" data-goto="p-afin"><span class="i">💰</span>Financeiro</div>
+  </div>
+</div></div>
+
+<div class="shell" id="p-afin" data-flow="p-adash"><div class="label">10 · Arena · Financeiro</div><div class="phone">
+  <div class="scr">
+    <b style="font-size:20px">Financeiro</b>
+    <div class="banner" style="margin-top:14px">
+      <div style="font-size:11px;font-weight:700;color:#d9f5e2">SALDO A RECEBER</div>
+      <div style="font-size:30px;font-weight:800">R$ 3.480,00</div>
+      <div style="font-size:12px;color:#d9f5e2">próximo repasse: sexta-feira, 10/07</div>
+    </div>
+    <button class="outline g" style="margin-top:12px">Antecipar repasse</button>
+    <h2 class="sec">Extrato</h2>
+    <div class="card" style="padding:4px 16px">
+      <div class="item"><div><b>Reserva · Quadra 1</b><div class="muted" style="font-size:11.5px">08/07 · João Souza · Pix</div></div><b class="g">+ R$ 147,20</b></div>
+      <div class="item"><div><b>Reserva · Areia 1</b><div class="muted" style="font-size:11.5px">07/07 · Marcos Lima · cartão</div></div><b class="g">+ R$ 82,80</b></div>
+      <div class="item"><div><b>Taxa ArenaHub (8%)</b><div class="muted" style="font-size:11.5px">semana 05/07 – 11/07</div></div><b class="muted">− R$ 27,84</b></div>
+      <div class="item"><div><b>Repasse efetuado</b><div class="muted" style="font-size:11.5px">03/07 · conta •••1234</div></div><b>R$ 2.960,00</b></div>
+    </div>
+  </div>
+  <div class="tabbar">
+    <div class="tab" data-goto="p-adash"><span class="i">🏠</span>Início</div>
+    <div class="tab" data-goto="p-agenda"><span class="i">🗓️</span>Agenda</div>
+    <div class="tab" data-goto="p-aquadra"><span class="i">🏟️</span>Quadras</div>
+    <div class="tab on"><span class="i">💰</span>Financeiro</div>
+  </div>
+</div></div>
+
+<!-- ============ FLUXO DO ADMIN ============ -->
+<div class="shell" id="p-mdash" data-flow="p-mdash"><div class="label">11 · Admin · Visão geral</div><div class="phone">
+  <div class="scr">
+    <div class="row sb"><b style="font-size:20px">🛡️ Admin</b><span class="badge b-g">PRODUÇÃO</span></div>
+    <div class="hr" style="margin-top:12px">
+      <div class="pill on"><b>Visão geral</b></div>
+      <div class="pill" data-goto="p-marenas"><b>Arenas</b></div>
+      <div class="pill" data-goto="p-musers"><b>Usuários</b></div>
+    </div>
+    <div class="grid2" style="margin-top:14px">
+      <div class="stat"><span>GMV DO MÊS</span><b>R$ 84.300</b></div>
+      <div class="stat"><span>RESERVAS</span><b>612</b></div>
+      <div class="stat"><span>RECEITA (TAKE 8%)</span><b class="g">R$ 6.744</b></div>
+      <div class="stat"><span>NOVAS ARENAS</span><b>14</b></div>
+    </div>
+    <h2 class="sec">Reservas por dia</h2>
+    <div class="card">
+      <div class="bars"><div style="height:35%"></div><div style="height:48%"></div><div style="height:42%"></div><div style="height:60%"></div><div style="height:74%"></div><div class="hot" style="height:100%"></div><div style="height:88%"></div></div>
+      <div class="row sb muted" style="font-size:10px;margin-top:6px"><span>seg</span><span>ter</span><span>qua</span><span>qui</span><span>sex</span><span>sáb</span><span>dom</span></div>
+    </div>
+    <h2 class="sec">Últimas atividades</h2>
+    <div class="card" style="padding:4px 16px">
+      <div class="item">Nova arena aguardando aprovação <span class="badge b-y">PENDENTE</span></div>
+      <div class="item">Pico de reservas em Curitiba <span class="badge b-g">+38%</span></div>
+      <div class="item">2 disputas de reembolso abertas <span class="badge b-r">AÇÃO</span></div>
+    </div>
+  </div>
+</div></div>
+
+<div class="shell" id="p-marenas" data-flow="p-mdash"><div class="label">12 · Admin · Aprovação de arenas</div><div class="phone">
+  <div class="scr">
+    <div class="row" style="gap:10px"><span style="cursor:pointer" data-goto="p-mdash">←</span><b style="font-size:20px">Arenas</b></div>
+    <h2 class="sec">Aguardando aprovação (2)</h2>
+    <div class="card">
+      <div class="row sb"><b style="font-size:15px">Arena Litoral Sul</b><span class="badge b-y">PENDENTE</span></div>
+      <div class="muted" style="font-size:12px;margin-top:3px">Matinhos, PR · 3 quadras · CNPJ verificado ✔</div>
+      <div class="row" style="margin-top:12px;gap:8px">
+        <button class="cta" style="flex:1;padding:11px;font-size:13.5px" onclick="aprovar(this)">Aprovar</button>
+        <button class="outline" style="flex:1;padding:11px;font-size:13.5px">Recusar</button>
+      </div>
+    </div>
+    <div class="card" style="margin-top:12px">
+      <div class="row sb"><b style="font-size:15px">Society do Zé</b><span class="badge b-y">PENDENTE</span></div>
+      <div class="muted" style="font-size:12px;margin-top:3px">Colombo, PR · 1 quadra · CNPJ em análise ⏳</div>
+      <div class="row" style="margin-top:12px;gap:8px">
+        <button class="cta" style="flex:1;padding:11px;font-size:13.5px" onclick="aprovar(this)">Aprovar</button>
+        <button class="outline" style="flex:1;padding:11px;font-size:13.5px">Recusar</button>
+      </div>
+    </div>
+    <h2 class="sec">Ativas (14)</h2>
+    <div class="card" style="padding:4px 16px">
+      <div class="item">Arena Beira-Mar · Curitiba <span class="badge b-g">ATIVA</span></div>
+      <div class="item">CE Ponta Grossa · Curitiba <span class="badge b-g">ATIVA</span></div>
+      <div class="item">Ginásio Vila Nova · São Paulo <span class="badge b-g">ATIVA</span></div>
+    </div>
+  </div>
+</div></div>
+
+<div class="shell" id="p-musers" data-flow="p-mdash"><div class="label">13 · Admin · Usuários</div><div class="phone">
+  <div class="scr">
+    <div class="row" style="gap:10px"><span style="cursor:pointer" data-goto="p-mdash">←</span><b style="font-size:20px">Usuários</b></div>
+    <div class="input" style="border-radius:16px;margin-top:12px">Buscar por nome, e-mail ou telefone...</div>
+    <div class="card" style="margin-top:14px;padding:4px 16px">
+      <div class="item"><div class="row" style="gap:10px"><div class="avatar">JD</div><div><b style="font-size:13.5px">Jogador Demo</b><div class="muted" style="font-size:11px">demo@arenahub.app</div></div></div><span class="badge b-b">JOGADOR</span></div>
+      <div class="item"><div class="row" style="gap:10px"><div class="avatar">CS</div><div><b style="font-size:13.5px">Carlos Souza</b><div class="muted" style="font-size:11px">arena@arenahub.app</div></div></div><span class="badge b-g">DONO</span></div>
+      <div class="item"><div class="row" style="gap:10px"><div class="avatar">RA</div><div><b style="font-size:13.5px">Rafa Almeida</b><div class="muted" style="font-size:11px">rafa@gmail.com</div></div></div><span class="badge b-b">JOGADOR</span></div>
+      <div class="item"><div class="row" style="gap:10px"><div class="avatar">ML</div><div><b style="font-size:13.5px">Marcos Lima</b><div class="muted" style="font-size:11px">marcos@gmail.com</div></div></div><span class="badge b-r">BLOQUEADO</span></div>
+    </div>
+    <div class="card" style="margin-top:14px">
+      <b style="font-size:13.5px">Resumo</b>
+      <div class="item">Jogadores ativos<span><b>1.284</b></span></div>
+      <div class="item">Donos de arena<span><b>17</b></span></div>
+      <div class="item">Cadastros esta semana<span class="g"><b>+96</b></span></div>
+    </div>
+  </div>
+</div></div>
+
+</main>
+<script>
+function go(id){
+  document.querySelectorAll('.shell').forEach(s=>s.classList.toggle('on',s.id===id));
+  const flow=document.getElementById(id)?.dataset.flow;
+  document.querySelectorAll('.flows .fbtn').forEach(b=>b.classList.toggle('on',b.dataset.goto===flow));
+  document.body.classList.remove('grid');
+  window.scrollTo(0,0);
+}
+document.addEventListener('click',e=>{
+  const g=e.target.closest('[data-goto]');
+  if(g){go(g.dataset.goto);return}
+  const h=e.target.closest('.hour');
+  if(h){h.parentElement.querySelectorAll('.hour').forEach(x=>x.classList.remove('on'));h.classList.add('on');return}
+  const m=e.target.closest('.met');
+  if(m){m.parentElement.querySelectorAll('.met').forEach(x=>x.classList.remove('on'));m.classList.add('on');return}
+  const p=e.target.closest('.payopt');
+  if(p){p.parentElement.querySelectorAll('.payopt').forEach(x=>x.classList.remove('on'));p.classList.add('on');return}
+  const d=e.target.closest('.day');
+  if(d){d.parentElement.querySelectorAll('.day').forEach(x=>x.classList.remove('on'));d.classList.add('on');return}
+  const pl=e.target.closest('.pill:not([data-goto])');
+  if(pl){pl.parentElement.querySelectorAll('.pill').forEach(x=>x.classList.remove('on'));pl.classList.add('on')}
+});
+let n=4;
+function step(d){
+  n=Math.min(30,Math.max(2,n+d));
+  document.getElementById('np').textContent=n;
+  document.getElementById('np2').textContent=n;
+  document.getElementById('cp').textContent=(160/n).toFixed(2).replace('.',',');
+}
+function aprovar(btn){
+  const card=btn.closest('.card');
+  card.querySelector('.badge').outerHTML='<span class="badge b-g">APROVADA ✔</span>';
+  btn.parentElement.outerHTML='<p class="g" style="font-size:12.5px;font-weight:700;margin-top:10px">Arena aprovada e publicada na busca.</p>';
+}
+</script>
+</body>
+</html>

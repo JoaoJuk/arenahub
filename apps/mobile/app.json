@@ -1,0 +1,26 @@
+{
+  "expo": {
+    "name": "Liggo",
+    "slug": "liggo",
+    "version": "1.2.0",
+    "scheme": "liggo",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "backgroundColor": "#0e1a13",
+    "icon": "./assets/logo.png",
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "app.liggo.mobile"
+    },
+    "android": {
+      "package": "app.liggo.mobile"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-asset"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}

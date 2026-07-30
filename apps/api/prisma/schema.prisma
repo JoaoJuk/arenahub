@@ -1,0 +1,133 @@
+// ArenaHub — schema (SQLite em dev; troque provider p/ "postgresql" em produção)
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String    @id @default(cuid())
+  username     String?   @unique
+  name         String
+  email        String    @unique
+  phone        String
+  cpf          String?
+  passwordHash String
+  role         String    @default("player") // player | owner | admin
+  createdAt    DateTime  @default(now())
+  bookings     Booking[]
+  arenas       Arena[]
+  shares       SplitShare[]
+}
+
+model Arena {
+  id          String  @id @default(cuid())
+  ownerId     String?
+  owner       User?   @relation(fields: [ownerId], references: [id])
+  name        String
+  city        String
+  address     String
+  description String  @default("")
+  sports      String // csv: "futebol,beach tennis"
+  photoUrl    String?
+  photos      String  @default("") // csv de URLs (galeria)
+  cnpj        String? // documento do estabelecimento (CNPJ ou CPF do responsável)
+  rating      Float   @default(4.8)
+  courts      Court[]
+}
+
+model Court {
+  id           String    @id @default(cuid())
+  arenaId      String
+  arena        Arena     @relation(fields: [arenaId], references: [id])
+  name         String
+  sport        String
+  pricePerHour Int // centavos
+  openHour     Int       @default(8)
+  closeHour    Int       @default(23)
+  photoUrl     String? // foto que o jogador vê
+  bookings     Booking[]
+}
+
+// Visualizações da arena por dia (métrica de desempenho, estilo iFood)
+model ViewStat {
+  id      String @id @default(cuid())
+  arenaId String
+  date    String // YYYY-MM-DD
+  count   Int    @default(0)
+
+  @@unique([arenaId, date])
+}
+
+model Review {
+  id        String   @id @default(cuid())
+  arenaId   String
+  userId    String
+  rating    Int // 1..5
+  comment   String   @default("")
+  createdAt DateTime @default(now())
+}
+
+model Booking {
+  id          String       @id @default(cuid())
+  courtId     String
+  court       Court        @relation(fields: [courtId], references: [id])
+  userId      String
+  user        User         @relation(fields: [userId], references: [id])
+  date        String // YYYY-MM-DD
+  startTime   String // HH:MM
+  endTime     String // HH:MM
+  totalAmount Int // centavos
+  paymentMode String // full | split | on_site
+  splitCount  Int?
+  shareToken  String?      @unique
+  isPublic    Boolean      @default(false)
+  spotsNeeded Int          @default(0)
+  status      String       @default("pending") // pending | confirmed | cancelled | done
+  createdAt   DateTime     @default(now())
+  shares      SplitShare[]
+  payments    Payment[]
+}
+
+model SplitShare {
+  id        String    @id @default(cuid())
+  bookingId String
+  booking   Booking   @relation(fields: [bookingId], references: [id])
+  userId    String?
+  user      User?     @relation(fields: [userId], references: [id])
+  name      String
+  phone     String
+  method    String // pix | card | on_site
+  amount    Int // centavos
+  status    String    @default("pending") // pending | paid | committed
+  createdAt DateTime  @default(now())
+  payments  Payment[]
+}
+
+model VerificationCode {
+  id        String    @id @default(cuid())
+  channel   String // email | phone
+  target    String // e-mail normalizado ou telefone só dígitos
+  code      String
+  expiresAt DateTime
+  createdAt DateTime  @default(now())
+}
+
+model Payment {
+  id                String      @id @default(cuid())
+  bookingId         String
+  booking           Booking     @relation(fields: [bookingId], references: [id])
+  shareId           String?
+  share             SplitShare? @relation(fields: [shareId], references: [id])
+  provider          String // mercadopago | mock
+  providerPaymentId String?
+  providerEventId   String?     @unique // idempotência de webhook
+  method            String // pix | card | on_site
+  amount            Int
+  status            String      @default("pending") // pending | approved | rejected
+  checkoutUrl       String?
+  createdAt         DateTime    @default(now())
+}
