@@ -1,4 +1,4 @@
-// ArenaHub — schema (SQLite em dev; troque provider p/ "postgresql" em produção)
+// Liggo — schema (SQLite em dev; troque provider p/ "postgresql" em produção)
 generator client {
   provider = "prisma-client-js"
 }

@@ -5,19 +5,31 @@
     "version": "1.2.0",
     "scheme": "liggo",
     "orientation": "portrait",
-    "userInterfaceStyle": "dark",
-    "backgroundColor": "#0e1a13",
+    "userInterfaceStyle": "light",
+    "backgroundColor": "#FAFAFA",
     "icon": "./assets/logo.png",
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "app.liggo.mobile"
     },
     "android": {
-      "package": "app.liggo.mobile"
+      "package": "app.liggo.mobile",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/logo.png",
+        "backgroundColor": "#FFFFFF"
+      }
     },
     "plugins": [
       "expo-router",
-      "expo-asset"
+      "expo-asset",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/logo.png",
+          "imageWidth": 160,
+          "backgroundColor": "#FAFAFA"
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true

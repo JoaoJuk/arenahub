@@ -1,13 +1,21 @@
 import { useEffect, useState } from 'react';
+import { View } from 'react-native';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { useFonts } from 'expo-font';
+import { Manrope_600SemiBold, Manrope_700Bold, Manrope_800ExtraBold } from '@expo-google-fonts/manrope';
+import { Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold } from '@expo-google-fonts/inter';
 import { loadToken, loadRole, homeOf } from '@/api';
-import { C } from '@/theme';
+import { Theme } from '@/theme';
 
 export default function RootLayout() {
   const [ready, setReady] = useState(false);
   const segments = useSegments();
   const router = useRouter();
+  const [fontsLoaded] = useFonts({
+    Manrope_600SemiBold, Manrope_700Bold, Manrope_800ExtraBold,
+    Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold,
+  });
 
   useEffect(() => {
     loadToken().then(() => setReady(true));
@@ -30,14 +38,21 @@ export default function RootLayout() {
     })();
   }, [ready, segments]);
 
+  if (!fontsLoaded) {
+    // Sem tela de loading com texto aqui de propósito — evita o flash de texto
+    // sem a fonte customizada aplicada antes dela terminar de carregar.
+    return <View style={{ flex: 1, backgroundColor: Theme.colors.background }} />;
+  }
+
   return (
     <>
-      <StatusBar style="light" />
+      <StatusBar style="dark" />
       <Stack
         screenOptions={{
-          headerStyle: { backgroundColor: C.bg },
-          headerTintColor: C.txt,
-          contentStyle: { backgroundColor: C.bg },
+          headerStyle: { backgroundColor: Theme.colors.background },
+          headerTitleStyle: { fontFamily: Theme.fonts.displaySemibold },
+          headerTintColor: Theme.colors.text,
+          contentStyle: { backgroundColor: Theme.colors.background },
         }}
       >
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />

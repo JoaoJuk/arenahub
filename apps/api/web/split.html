@@ -3,35 +3,65 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Dividir reserva — ArenaHub</title>
+<title>Dividir reserva — Liggo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
-  :root{--bg:#0e1a13;--card:#16241c;--line:#24382c;--green:#22c55e;--txt:#f0fdf4;--mut:#9db8a8}
+  :root{
+    --bg:#fafafa; --card:#ffffff; --line:#e4e4e7;
+    --green:#00b341; --green-dim:rgba(0,179,65,0.12);
+    --txt:#18181b; --mut:#71717a;
+    --font-display:'Manrope',-apple-system,sans-serif;
+    --font-body:'Inter',-apple-system,sans-serif;
+    --radius-card:14px; --radius-sm:10px; --radius-pill:999px;
+  }
   *{box-sizing:border-box;margin:0}
-  body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--txt);min-height:100vh;display:flex;justify-content:center;padding:24px 16px}
+  body{
+    font-family:var(--font-body);background:var(--bg);color:var(--txt);
+    min-height:100vh;display:flex;justify-content:center;padding:28px 16px;
+    -webkit-font-smoothing:antialiased;
+  }
   .wrap{width:100%;max-width:420px}
-  .logo{font-weight:800;font-size:20px;letter-spacing:-.5px;margin-bottom:16px}.logo span{color:var(--green)}
-  .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:20px;margin-bottom:16px}
-  h1{font-size:18px;margin-bottom:4px} .mut{color:var(--mut);font-size:14px}
-  .price{font-size:32px;font-weight:800;color:var(--green);margin:12px 0 2px}
-  label{display:block;font-size:13px;color:var(--mut);margin:14px 0 6px}
-  input{width:100%;padding:13px 14px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--txt);font-size:16px}
+  .logo{font-family:var(--font-display);font-weight:800;font-size:20px;letter-spacing:-0.02em;margin-bottom:18px}
+  .logo span{color:var(--green)}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius-card);padding:18px;margin-bottom:14px}
+  h1{font-family:var(--font-display);font-weight:800;font-size:17px;letter-spacing:-0.01em;margin-bottom:4px}
+  .mut{color:var(--mut);font-size:13.5px}
+  .price{font-family:var(--font-body);font-variant-numeric:tabular-nums;font-weight:700;font-size:30px;letter-spacing:-0.01em;margin:10px 0 2px}
+  label{display:block;font-size:12.5px;font-weight:600;color:var(--mut);margin:14px 0 6px}
+  input{
+    width:100%;padding:13px 14px;border-radius:var(--radius-sm);border:1px solid var(--line);
+    background:var(--bg);color:var(--txt);font-size:15px;font-family:var(--font-body);
+  }
+  input::placeholder{color:var(--mut)}
   .methods{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:6px}
-  .methods button{padding:12px 4px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--txt);font-size:13px;cursor:pointer}
-  .methods button.sel{border-color:var(--green);background:#132e1d;font-weight:700}
-  .cta{width:100%;margin-top:18px;padding:15px;border:0;border-radius:12px;background:var(--green);color:#04170b;font-size:16px;font-weight:800;cursor:pointer}
+  .methods button{
+    padding:11px 4px;border-radius:11px;border:1px solid var(--line);background:var(--card);
+    color:var(--txt);font-size:12.5px;font-weight:600;font-family:var(--font-body);cursor:pointer;
+  }
+  .methods button.sel{border-color:var(--green);background:var(--green-dim)}
+  .cta{
+    width:100%;margin-top:18px;padding:15px;border:0;border-radius:var(--radius-sm);
+    background:var(--green);color:var(--txt);font-size:15.5px;font-weight:700;
+    font-family:var(--font-body);cursor:pointer;
+  }
   .cta:disabled{opacity:.5}
-  .who{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--line);font-size:14px}
-  .who:last-child{border:0}
-  .ok{color:var(--green)} .pend{color:var(--mut)}
+  .who{display:flex;justify-content:space-between;padding:9px 0;border-top:1px solid var(--line);font-size:14px}
+  .who:first-child{border-top:0}
+  .ok{color:var(--green);font-weight:700;font-size:12.5px} .pend{color:var(--mut);font-size:12.5px}
   .msg{margin-top:12px;font-size:14px;text-align:center}
+  .promo{border-color:var(--green);text-align:center;background:var(--green-dim)}
+  .promo h1{color:var(--txt);font-size:15px}
+  .promo .cta{margin-top:12px;padding:11px;background:transparent;border:1px solid var(--green);color:var(--green)}
 </style>
 </head>
 <body>
 <div class="wrap">
-  <div class="logo">Arena<span>Hub</span></div>
+  <div class="logo">Lig<span>go</span></div>
 
   <div class="card">
-    <div class="mut">⚽ Você foi convidado para um jogo!</div>
+    <div class="mut">Você foi convidado para um jogo</div>
     <h1 style="margin-top: 8px;">{{ARENA}}</h1>
     <div class="mut">{{COURT}} · {{DATE}} · {{TIME}}</div>
     <div class="price">{{SHARE_AMOUNT}}</div>
@@ -46,9 +76,9 @@
     <input id="phone" placeholder="(41) 99999-9999" inputmode="tel" autocomplete="tel">
     <label>Forma de pagamento</label>
     <div class="methods">
-      <button data-m="pix" class="sel">⚡ Pix</button>
-      <button data-m="card">💳 Cartão</button>
-      <button data-m="on_site">🏟️ No local</button>
+      <button data-m="pix" class="sel">Pix</button>
+      <button data-m="card">Cartão</button>
+      <button data-m="on_site">No local</button>
     </div>
     <button class="cta" id="pay">Pagar minha parte</button>
     <div class="msg" id="msg"></div>
@@ -59,15 +89,13 @@
     <div id="people" class="mut" style="margin-top:8px">Carregando…</div>
   </div>
 
-  <!-- Isca Híbrida: Banner para baixar o app -->
-  <div class="card" style="border-color: var(--green); text-align: center; background: rgba(34, 197, 94, 0.05);">
-    <h1 style="color: var(--green); font-size: 16px;">Baixe o ArenaHub</h1>
-    <div class="mut" style="margin-top: 6px; font-size: 13px; margin-bottom: 12px;">
-      Organize seus jogos, descubra partidas abertas e não pague mais taxa de serviço!
+  <!-- Isca híbrida: banner para baixar o app -->
+  <div class="card promo">
+    <h1>Baixe o Liggo</h1>
+    <div class="mut" style="margin-top: 6px; font-size: 13px;">
+      Organize seus jogos, descubra partidas abertas e não pague mais taxa de serviço.
     </div>
-    <button class="cta" style="margin-top: 0; padding: 10px; background: transparent; border: 1px solid var(--green); color: var(--green);" onclick="alert('Indo para a loja de aplicativos!')">
-      Baixar App
-    </button>
+    <button class="cta" onclick="alert('Indo para a loja de aplicativos!')">Baixar app</button>
   </div>
 </div>
 
@@ -84,10 +112,10 @@ async function refresh() {
   const d = await r.json();
   const label = { pix: 'Pix', card: 'Cartão', on_site: 'No local' };
   document.getElementById('people').innerHTML =
-    (d.shares.map(s => `<div class="who"><span>${s.name} · ${label[s.method]}</span><span class="${s.status==='pending'?'pend':'ok'}">${s.status==='pending'?'aguardando':'✔ ok'}</span></div>`).join('')
+    (d.shares.map(s => `<div class="who"><span>${s.name} · ${label[s.method]}</span><span class="${s.status==='pending'?'pend':'ok'}">${s.status==='pending'?'aguardando':'pago'}</span></div>`).join('')
     || 'Ninguém ainda — seja o primeiro!')
     + (d.remaining > 0 ? `<div class="who"><span class="pend">${d.remaining} vaga(s) restante(s)</span><span></span></div>` : '')
-    + (d.status === 'confirmed' ? '<div class="msg ok">🎉 Reserva confirmada!</div>' : '');
+    + (d.status === 'confirmed' ? '<div class="msg ok">Reserva confirmada!</div>' : '');
 }
 refresh(); setInterval(refresh, 5000);
 
@@ -104,7 +132,7 @@ document.getElementById('pay').onclick = async () => {
   const d = await r.json();
   if (!r.ok) { msg.textContent = d.error || 'Erro, tente novamente.'; btn.disabled = false; return; }
   if (d.checkoutUrl) { location.href = d.checkoutUrl; }
-  else { msg.innerHTML = '<span class="ok">✔ Presença confirmada! Pague no local no dia do jogo.</span>'; refresh(); }
+  else { msg.innerHTML = '<span class="ok">Presença confirmada! Pague no local no dia do jogo.</span>'; refresh(); }
 };
 </script>
 </body>

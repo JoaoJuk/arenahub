@@ -21,25 +21,27 @@ const gallery = {
   ],
 };
 
+// Cada quadra tem a própria foto: a tela da arena abre a galeria na foto da quadra
+// selecionada, então sem isto trocar de quadra não muda nada na tela.
 const arenas = [
   { name: 'Arena Beira-Mar', city: 'Curitiba', address: 'Av. das Torres, 1200', sports: 'futebol,futevôlei', description: 'Quadras de grama sintética cobertas, bar e churrasqueira.', rating: 4.9, photoUrl: 'https://images.unsplash.com/photo-1529900748604-07564a03e7a6?w=800', courts: [
-    { name: 'Quadra 1 — Society', sport: 'futebol', pricePerHour: 16000, openHour: 8, closeHour: 23 },
-    { name: 'Quadra 2 — Society', sport: 'futebol', pricePerHour: 14000, openHour: 8, closeHour: 23 },
-    { name: 'Areia 1 — Futevôlei', sport: 'futevôlei', pricePerHour: 9000, openHour: 9, closeHour: 22 },
+    { name: 'Quadra 1 — Society', sport: 'futebol', pricePerHour: 16000, openHour: 8, closeHour: 23, photoUrl: 'https://images.unsplash.com/photo-1575361204480-aadea25e6e68?w=800' },
+    { name: 'Quadra 2 — Society', sport: 'futebol', pricePerHour: 14000, openHour: 8, closeHour: 23, photoUrl: 'https://images.unsplash.com/photo-1459865264687-595d652de67e?w=800' },
+    { name: 'Areia 1 — Futevôlei', sport: 'futevôlei', pricePerHour: 9000, openHour: 9, closeHour: 22, photoUrl: 'https://images.unsplash.com/photo-1554068865-24cecd4e34b8?w=800' },
   ]},
   { name: 'Centro Esportivo Ponta Grossa', city: 'Curitiba', address: 'R. XV de Novembro, 300', sports: 'beach tennis,vôlei', description: 'Areia tratada diariamente, iluminação de LED e vestiários novos.', rating: 4.7, photoUrl: 'https://images.unsplash.com/photo-1544919982-b61976f0ba43?w=800', courts: [
-    { name: 'BT 01', sport: 'beach tennis', pricePerHour: 12000, openHour: 7, closeHour: 22 },
-    { name: 'BT 02', sport: 'beach tennis', pricePerHour: 12000, openHour: 7, closeHour: 22 },
+    { name: 'BT 01', sport: 'beach tennis', pricePerHour: 12000, openHour: 7, closeHour: 22, photoUrl: 'https://images.unsplash.com/photo-1519046904884-53103b34b206?w=800' },
+    { name: 'BT 02', sport: 'beach tennis', pricePerHour: 12000, openHour: 7, closeHour: 22, photoUrl: 'https://images.unsplash.com/photo-1544919982-b61976f0ba43?w=800' },
   ]},
   { name: 'Ginásio Vila Nova', city: 'São Paulo', address: 'R. Augusta, 2500', sports: 'basquete,futsal', description: 'Piso profissional, placar eletrônico e arquibancada.', rating: 4.6, photoUrl: 'https://images.unsplash.com/photo-1546519638-68e109498ffc?w=800', courts: [
-    { name: 'Quadra Central', sport: 'futsal', pricePerHour: 18000, openHour: 8, closeHour: 23 },
-    { name: 'Quadra B', sport: 'basquete', pricePerHour: 15000, openHour: 8, closeHour: 22 },
+    { name: 'Quadra Central', sport: 'futsal', pricePerHour: 18000, openHour: 8, closeHour: 23, photoUrl: 'https://images.unsplash.com/photo-1519861531473-9200262188bf?w=800' },
+    { name: 'Quadra B', sport: 'basquete', pricePerHour: 15000, openHour: 8, closeHour: 22, photoUrl: 'https://images.unsplash.com/photo-1574629810360-7efbbe195018?w=800' },
   ]},
 ];
 
-const owner = { name: 'Dono Demo', email: 'arena@arenahub.app', phone: '41999990000', role: 'owner' };
-const player = { name: 'Jogador Demo', email: 'demo@arenahub.app', phone: '41988887777', role: 'player' };
-const admin = { name: 'Admin Demo', email: 'admin@arenahub.app', phone: '41977776666', role: 'admin' };
+const owner = { name: 'Dono Demo', email: 'arena@liggo.app', phone: '41999990000', role: 'owner' };
+const player = { name: 'Jogador Demo', email: 'demo@liggo.app', phone: '41988887777', role: 'player' };
+const admin = { name: 'Admin Demo', email: 'admin@liggo.app', phone: '41977776666', role: 'admin' };
 
 const passwordHash = await bcrypt.hash('123456', 10);
 const ownerUser = await prisma.user.upsert({ where: { email: owner.email }, update: {}, create: { ...owner, passwordHash } });
@@ -49,9 +51,15 @@ await prisma.user.upsert({ where: { email: admin.email }, update: { role: 'admin
 for (const a of arenas) {
   const { courts, ...data } = a;
   const photos = (gallery[a.name] || []).join(',');
-  const exists = await prisma.arena.findFirst({ where: { name: a.name } });
+  const exists = await prisma.arena.findFirst({ where: { name: a.name }, include: { courts: true } });
   if (exists) {
     await prisma.arena.update({ where: { id: exists.id }, data: { photos } });
+    // Quadras já criadas não passavam por aqui, então um banco existente ficava
+    // sem `photoUrl` e a galeria por quadra não tinha o que mostrar.
+    for (const c of courts) {
+      const existing = exists.courts.find((x) => x.name === c.name);
+      if (existing) await prisma.court.update({ where: { id: existing.id }, data: { photoUrl: c.photoUrl } });
+    }
     continue;
   }
   await prisma.arena.create({ data: { ...data, photos, ownerId: ownerUser.id, courts: { create: courts } } });
@@ -90,5 +98,5 @@ if (beira && demoUser && hasViews === 0) {
   console.log('📈 Dados de desempenho de exemplo criados (14 dias de visualizações, avaliações e histórico).');
 }
 
-console.log('✅ Seed concluído: 3 arenas, 7 quadras. Logins (senha 123456): demo@arenahub.app (jogador) · arena@arenahub.app (dono) · admin@arenahub.app (admin)');
+console.log('✅ Seed concluído: 3 arenas, 7 quadras. Logins (senha 123456): demo@liggo.app (jogador) · arena@liggo.app (dono) · admin@liggo.app (admin)');
 await prisma.$disconnect();

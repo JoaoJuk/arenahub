@@ -123,7 +123,7 @@ export default function Profile() {
           <Text style={s.name}>{me?.name || 'Visitante'}</Text>
           <TouchableOpacity style={s.clubeBtn} activeOpacity={0.7}>
             <Text style={s.clubeTxt}>Jogador Pro — 2 meses grátis!</Text>
-            <ChevronRight size={14} color="#9C27B0" />
+            <ChevronRight size={14} color={Theme.colors.text} />
           </TouchableOpacity>
           {me?.username && <Text style={s.username}>@{me.username}</Text>}
         </View>
@@ -148,7 +148,7 @@ export default function Profile() {
           <Text style={s.promoTitle}>Convide um amigo e ganhe R$ 20</Text>
           <Text style={s.promoSub}>Acumule saldo a cada amigo que jogar no app!</Text>
         </View>
-        <ChevronRight size={18} color={Theme.colors.danger} />
+        <ChevronRight size={18} color={Theme.colors.textMuted} />
       </View>
 
       <View style={s.dividerThin} />
@@ -195,13 +195,13 @@ const s = StyleSheet.create({
   
   // Header
   header: { flexDirection: 'row', alignItems: 'center', padding: 20, paddingTop: 32 },
-  avatarBox: { width: 64, height: 64, borderRadius: 32, backgroundColor: '#FFE4E1', alignItems: 'center', justifyContent: 'center' },
-  avatarTxt: { fontSize: 28, color: '#D32F2F', fontWeight: '800' },
+  avatarBox: { width: 64, height: 64, borderRadius: 32, backgroundColor: Theme.colors.primaryDim, alignItems: 'center', justifyContent: 'center' },
+  avatarTxt: { fontSize: 28, color: Theme.colors.text, fontWeight: '800' },
   headerInfo: { marginLeft: 16, flex: 1, justifyContent: 'center' },
   name: { fontSize: 22, color: Theme.colors.text, fontWeight: '800' },
   username: { fontSize: 13, color: Theme.colors.textMuted, marginTop: 2 },
-  clubeBtn: { flexDirection: 'row', alignItems: 'center', marginTop: 4, gap: 4 },
-  clubeTxt: { fontSize: 14, color: '#9C27B0', fontWeight: '700' },
+  clubeBtn: { flexDirection: 'row', alignItems: 'center', marginTop: 4, gap: 4, backgroundColor: Theme.colors.surfaceHighlight, alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 4, borderRadius: Theme.radius.full },
+  clubeTxt: { fontSize: 12.5, color: Theme.colors.text, fontWeight: '700' },
 
   divider: { height: 8, backgroundColor: Theme.colors.surface, borderTopWidth: 1, borderBottomWidth: 1, borderColor: Theme.colors.border, marginVertical: 12 },
   dividerThin: { height: 1, backgroundColor: Theme.colors.border, marginHorizontal: 20 },

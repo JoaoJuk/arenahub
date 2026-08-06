@@ -35,11 +35,13 @@ export default async function arenaRoutes(app) {
     }).catch(() => {});
 
     const photos = (arena.photos || '').split(',').filter(Boolean);
-    const courtPhotos = arena.courts.map((c) => c.photoUrl).filter(Boolean);
     return {
       ...arena,
       sports: arena.sports.split(','),
-      photos: [...new Set([...(photos.length ? photos : arena.photoUrl ? [arena.photoUrl] : []), ...courtPhotos])],
+      // Só as fotos gerais da arena. A foto de cada quadra vai em courts[].photoUrl
+      // e a tela monta a galeria começando pela quadra selecionada — mesclar as duas
+      // aqui fazia a foto da quadra contar duas vezes e encurtava a galeria.
+      photos: photos.length ? photos : arena.photoUrl ? [arena.photoUrl] : [],
     };
   });
 

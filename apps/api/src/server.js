@@ -42,7 +42,7 @@ app.decorate('authenticate', async (req, reply) => {
   }
 });
 
-app.get('/health', async () => ({ ok: true, service: 'arenahub-api' }));
+app.get('/health', async () => ({ ok: true, service: 'liggo-api' }));
 
 await app.register(authRoutes);
 await app.register(arenaRoutes);

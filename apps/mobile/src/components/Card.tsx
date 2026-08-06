@@ -32,11 +32,7 @@ export const Card: React.FC<CardProps> = ({
       case 'elevated':
         return {
           backgroundColor: Theme.colors.surface,
-          shadowColor: '#000',
-          shadowOffset: { width: 0, height: 4 },
-          shadowOpacity: 0.06,
-          shadowRadius: 16,
-          elevation: 3, // Android
+          ...Theme.shadow.raised,
           borderWidth: 1,
           borderColor: Theme.colors.border,
         };
@@ -61,7 +57,7 @@ export const Card: React.FC<CardProps> = ({
 
 const styles = StyleSheet.create({
   base: {
-    borderRadius: Theme.radius.lg,
+    borderRadius: Theme.radius.md,
     overflow: 'hidden',
   },
 });

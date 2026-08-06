@@ -135,7 +135,7 @@ export default async function authRoutes(app) {
       where: { id },
       data: {
         name: 'Usuário removido',
-        email: `removido_${id}@arenahub.invalid`,
+        email: `removido_${id}@liggo.invalid`,
         phone: '',
         cpf: null,
         passwordHash: crypto.randomBytes(32).toString('hex'),

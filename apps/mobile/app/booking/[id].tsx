@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, TextInput, StyleSheet, Share, Linking, Alert } from 'react-native';
 import { useFocusEffect, useLocalSearchParams } from 'expo-router';
-import { Search, Settings2 } from 'lucide-react-native';
+import { Search, Settings2, CheckCircle2, Clock3, XCircle, MessageCircle, CreditCard, Star } from 'lucide-react-native';
 import { api } from '@/api';
 import { Theme, brl } from '@/theme';
 import { Button } from '@/components/Button';
@@ -67,21 +67,25 @@ export default function BookingScreen() {
 
   const share = () =>
     Share.share({
-      message: `⚽ Bora jogar! Reservei ${b.court.name} na ${b.court.arena.name} dia ${b.date.split('-').reverse().join('/')} às ${b.startTime}. Paga tua parte aqui (${brl(Math.ceil(b.totalAmount / b.splitCount))}): ${b.shareUrl}`,
+      message: `Bora jogar! Reservei ${b.court.name} na ${b.court.arena.name} dia ${b.date.split('-').reverse().join('/')} às ${b.startTime}. Paga tua parte aqui (${brl(Math.ceil(b.totalAmount / b.splitCount))}): ${b.shareUrl}`,
     });
 
   const statusColor = b.status === 'confirmed' ? Theme.colors.success : b.status === 'cancelled' ? Theme.colors.danger : Theme.colors.warning;
-  const label: any = { pix: '⚡ Pix', card: '💳 Cartão', on_site: '🏟️ No local' };
+  const StatusIcon = b.status === 'confirmed' ? CheckCircle2 : b.status === 'cancelled' ? XCircle : Clock3;
+  const label: any = { pix: 'Pix', card: 'Cartão', on_site: 'No local' };
 
   return (
     <ScrollView style={s.wrap} contentContainerStyle={{ padding: Theme.spacing.md, paddingBottom: 40, gap: Theme.spacing.md }}>
       <Card padding="md">
         <Text style={s.h1}>{b.court.arena.name}</Text>
         <Text style={s.mut}>{b.court.name} · {b.date.split('-').reverse().join('/')} · {b.startTime}–{b.endTime}</Text>
-        <Text style={[s.status, { color: statusColor }]}>
-          {b.status === 'confirmed' ? '✅ Reserva confirmada' : b.status === 'cancelled' ? 'Cancelada' : '⏳ Aguardando pagamentos'}
-        </Text>
-        <Text style={{ color: Theme.colors.text, fontSize: 24, fontWeight: '800', marginTop: 8 }}>{brl(b.totalAmount)}</Text>
+        <View style={s.statusRow}>
+          <StatusIcon color={statusColor} size={16} strokeWidth={2} />
+          <Text style={[s.status, { color: statusColor }]}>
+            {b.status === 'confirmed' ? 'Reserva confirmada' : b.status === 'cancelled' ? 'Cancelada' : 'Aguardando pagamentos'}
+          </Text>
+        </View>
+        <Text style={s.totalAmount}>{brl(b.totalAmount)}</Text>
       </Card>
 
       {b.paymentMode === 'split' && (
@@ -192,7 +196,7 @@ export default function BookingScreen() {
               <View style={s.orLine} />
             </View>
 
-            <Button title="🔗 Enviar link pelo WhatsApp" onPress={share} />
+            <Button title="Enviar link pelo WhatsApp" icon={<MessageCircle />} onPress={share} />
             <Text style={[s.mut, { textAlign: 'center', marginTop: 8 }]}>
               Amigos sem o app pagam clicando no link
             </Text>
@@ -212,7 +216,7 @@ export default function BookingScreen() {
                   )}
                 </View>
                 <Text style={{ color: sh.status === 'pending' ? Theme.colors.danger : sh.status === 'committed' ? Theme.colors.warning : Theme.colors.success, fontWeight: '600' }}>
-                  {sh.status === 'pending' ? 'aguardando' : sh.status === 'committed' ? 'pendente' : 'pago ✔'}
+                  {sh.status === 'pending' ? 'aguardando' : sh.status === 'committed' ? 'pendente' : 'pago'}
                 </Text>
               </View>
             ))}
@@ -221,21 +225,25 @@ export default function BookingScreen() {
       )}
 
       {b.paymentMode === 'full' && b.status === 'pending' && b.payments?.[0]?.checkoutUrl && (
-        <Button title="💳 Concluir pagamento" onPress={() => Linking.openURL(b.payments[0].checkoutUrl)} />
+        <Button title="Concluir pagamento" icon={<CreditCard />} onPress={() => Linking.openURL(b.payments[0].checkoutUrl)} />
       )}
 
       {/* Avaliação após o jogo (padrão marketplace) */}
       {(b.status === 'done' || (b.status === 'confirmed' && b.date < new Date().toISOString().slice(0, 10))) && (
         <Card padding="md">
           {reviewed ? (
-            <Text style={{ color: Theme.colors.success, fontWeight: '700', textAlign: 'center' }}>✔ Avaliação enviada — obrigado!</Text>
+            <Text style={{ color: Theme.colors.success, fontWeight: '700', textAlign: 'center' }}>Avaliação enviada — obrigado!</Text>
           ) : (
             <>
               <Text style={s.h2}>Como foi jogar na {b.court.arena.name}?</Text>
               <View style={{ flexDirection: 'row', gap: 8, marginVertical: 8 }}>
                 {[1, 2, 3, 4, 5].map((n) => (
                   <TouchableOpacity key={n} onPress={() => setStars(n)}>
-                    <Text style={{ fontSize: 30, color: n <= stars ? Theme.colors.warning : Theme.colors.border }}>★</Text>
+                    <Star
+                      size={30}
+                      color={n <= stars ? Theme.colors.warning : Theme.colors.border}
+                      fill={n <= stars ? Theme.colors.warning : 'transparent'}
+                    />
                   </TouchableOpacity>
                 ))}
               </View>
@@ -280,7 +288,9 @@ const s = StyleSheet.create({
   h1: { color: Theme.colors.text, fontSize: 20, fontWeight: '800' },
   h2: { color: Theme.colors.text, fontSize: 16, fontWeight: '700', marginBottom: 10 },
   mut: { color: Theme.colors.textMuted, fontSize: 13, marginTop: 3 },
-  status: { marginTop: 10, fontWeight: '700' },
+  statusRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 10 },
+  status: { fontWeight: '700' },
+  totalAmount: { ...Theme.typography.price, color: Theme.colors.text, fontSize: 24, marginTop: 8 },
   row: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: Theme.colors.border },
   cancel: { borderWidth: 1, borderColor: Theme.colors.danger, borderRadius: Theme.radius.md, padding: 14, marginTop: Theme.spacing.lg },
   reviewInput: { backgroundColor: Theme.colors.background, borderWidth: 1, borderColor: Theme.colors.border, borderRadius: Theme.radius.sm, color: Theme.colors.text, padding: 12, fontSize: 14, minHeight: 60, textAlignVertical: 'top' },

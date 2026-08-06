@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
+import { User, Building2, FlaskConical } from 'lucide-react-native';
 import { api, setToken, setRole, homeOf } from '@/api';
-import { C } from '@/theme';
+import { Theme } from '@/theme';
 
 const SPORTS = ['futebol', 'beach tennis', 'vôlei', 'basquete', 'futsal', 'futevôlei'];
 
@@ -92,14 +93,14 @@ export default function Register() {
   if (!kind) {
     return (
       <ScrollView style={s.wrap} contentContainerStyle={s.center}>
-        <Text style={s.h1}>Como você quer usar o Arena<Text style={{ color: C.green }}>Hub</Text>?</Text>
+        <Text style={s.h1}>Como você quer usar o Lig<Text style={{ color: Theme.colors.primary }}>go</Text>?</Text>
         <TouchableOpacity style={s.typeCard} onPress={() => { setKind('player'); setStep(1); }}>
-          <Text style={{ fontSize: 34 }}>👤</Text>
+          <User color={Theme.colors.text} size={30} strokeWidth={1.7} />
           <Text style={s.typeTitle}>Sou jogador</Text>
           <Text style={s.typeSub}>Quero encontrar quadras, reservar horários e dividir o pagamento com meus amigos.</Text>
         </TouchableOpacity>
         <TouchableOpacity style={s.typeCard} onPress={() => { setKind('owner'); setStep(1); }}>
-          <Text style={{ fontSize: 34 }}>🏟️</Text>
+          <Building2 color={Theme.colors.text} size={30} strokeWidth={1.7} />
           <Text style={s.typeTitle}>Tenho um estabelecimento</Text>
           <Text style={s.typeSub}>Quero cadastrar minha arena, receber reservas e aumentar a ocupação das quadras.</Text>
         </TouchableOpacity>
@@ -113,8 +114,13 @@ export default function Register() {
         <>
           <Text style={s.lbl}>CÓDIGO DE 6 DÍGITOS</Text>
           <TextInput style={[s.input, { letterSpacing: 6, textAlign: 'center', fontSize: 20 }]} keyboardType="number-pad"
-            maxLength={6} value={code} onChangeText={setCode} placeholder="••••••" placeholderTextColor={C.mut} />
-          {!!dev && <Text style={s.dev}>🧪 Modo dev (sem provedor de envio): seu código é {dev}</Text>}
+            maxLength={6} value={code} onChangeText={setCode} placeholder="••••••" placeholderTextColor={Theme.colors.textMuted} />
+          {!!dev && (
+            <View style={s.devBanner}>
+              <FlaskConical color={Theme.colors.warning} size={15} />
+              <Text style={s.devTxt}>Modo dev (sem provedor de envio): seu código é {dev}</Text>
+            </View>
+          )}
           <TouchableOpacity onPress={() => sendCode(channel)}>
             <Text style={s.link}>Reenviar código</Text>
           </TouchableOpacity>
@@ -136,11 +142,11 @@ export default function Register() {
       {/* progresso */}
       <View style={s.progress}>
         {Array.from({ length: totalSteps }, (_, i) => (
-          <View key={i} style={[s.bar, i < step && { backgroundColor: C.green }]} />
+          <View key={i} style={[s.bar, i < step && { backgroundColor: Theme.colors.primary }]} />
         ))}
       </View>
       <TouchableOpacity onPress={() => (step === 1 ? (setKind(null), setStep(0)) : setStep(step - 1))}>
-        <Text style={{ color: C.mut, marginBottom: 14 }}>← Voltar</Text>
+        <Text style={s.back}>← Voltar</Text>
       </TouchableOpacity>
 
       {/* Etapa 1 — e-mail */}
@@ -150,7 +156,7 @@ export default function Register() {
           <Text style={s.sub}>Enviamos um código de 6 dígitos para confirmar que ele é seu.</Text>
           <Text style={s.lbl}>E-MAIL</Text>
           <TextInput style={s.input} value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address"
-            placeholder="voce@email.com" placeholderTextColor={C.mut} />
+            placeholder="voce@email.com" placeholderTextColor={Theme.colors.textMuted} />
           {codeBlock('email', emailSent, emailCode, setEmailCode, emailDev)}
         </>
       )}
@@ -162,7 +168,7 @@ export default function Register() {
           <Text style={s.sub}>Enviamos um SMS com o código — é ele que protege sua conta e suas reservas.</Text>
           <Text style={s.lbl}>CELULAR (COM DDD)</Text>
           <TextInput style={s.input} value={phone} onChangeText={setPhone} keyboardType="phone-pad"
-            placeholder="(41) 99999-9999" placeholderTextColor={C.mut} />
+            placeholder="(41) 99999-9999" placeholderTextColor={Theme.colors.textMuted} />
           {codeBlock('phone', phoneSent, phoneCode, setPhoneCode, phoneDev)}
         </>
       )}
@@ -173,14 +179,14 @@ export default function Register() {
           <Text style={s.h2}>Seu estabelecimento</Text>
           <Text style={s.sub}>Esses dados aparecem para os jogadores e são usados na verificação do repasse.</Text>
           <Text style={s.lbl}>NOME DA ARENA</Text>
-          <TextInput style={s.input} value={bizName} onChangeText={setBizName} placeholder="Ex.: Arena do João" placeholderTextColor={C.mut} />
+          <TextInput style={s.input} value={bizName} onChangeText={setBizName} placeholder="Ex.: Arena do João" placeholderTextColor={Theme.colors.textMuted} />
           <Text style={s.lbl}>CNPJ (OU CPF SE FOR MEI/AUTÔNOMO)</Text>
           <TextInput style={s.input} value={bizDoc} onChangeText={setBizDoc} keyboardType="number-pad"
-            placeholder="00.000.000/0001-00" placeholderTextColor={C.mut} />
+            placeholder="00.000.000/0001-00" placeholderTextColor={Theme.colors.textMuted} />
           <Text style={s.lbl}>CIDADE</Text>
-          <TextInput style={s.input} value={bizCity} onChangeText={setBizCity} placeholder="Curitiba" placeholderTextColor={C.mut} />
+          <TextInput style={s.input} value={bizCity} onChangeText={setBizCity} placeholder="Curitiba" placeholderTextColor={Theme.colors.textMuted} />
           <Text style={s.lbl}>ENDEREÇO</Text>
-          <TextInput style={s.input} value={bizAddr} onChangeText={setBizAddr} placeholder="Rua, número e bairro" placeholderTextColor={C.mut} />
+          <TextInput style={s.input} value={bizAddr} onChangeText={setBizAddr} placeholder="Rua, número e bairro" placeholderTextColor={Theme.colors.textMuted} />
           <Text style={s.lbl}>ESPORTES OFERECIDOS</Text>
           <View style={s.chips}>
             {SPORTS.map((sp) => {
@@ -188,7 +194,7 @@ export default function Register() {
               return (
                 <TouchableOpacity key={sp} style={[s.chip, on && s.chipOn]}
                   onPress={() => setBizSports(on ? bizSports.filter((x) => x !== sp) : [...bizSports, sp])}>
-                  <Text style={{ color: on ? '#04170b' : C.mut, fontSize: 12.5, fontWeight: '600' }}>{sp}</Text>
+                  <Text style={{ color: on ? Theme.colors.text : Theme.colors.textMuted, fontSize: 12.5, fontWeight: '600' }}>{sp}</Text>
                 </TouchableOpacity>
               );
             })}
@@ -209,14 +215,14 @@ export default function Register() {
           <Text style={s.h2}>Pra finalizar, quem é você?</Text>
           <Text style={s.sub}>{kind === 'owner' ? 'Nome e CPF do responsável legal pela conta.' : 'Seu CPF evita contas falsas e protege os rachas.'}</Text>
           <Text style={s.lbl}>NOME COMPLETO</Text>
-          <TextInput style={s.input} value={name} onChangeText={setName} placeholder="Ex.: João Silva" placeholderTextColor={C.mut} />
+          <TextInput style={s.input} value={name} onChangeText={setName} placeholder="Ex.: João Silva" placeholderTextColor={Theme.colors.textMuted} />
           <Text style={s.lbl}>CPF</Text>
           <TextInput style={s.input} value={cpf} onChangeText={setCpf} keyboardType="number-pad"
-            placeholder="000.000.000-00" placeholderTextColor={C.mut} />
+            placeholder="000.000.000-00" placeholderTextColor={Theme.colors.textMuted} />
           <Text style={s.lbl}>SENHA (MÍN. 8 CARACTERES)</Text>
-          <TextInput style={s.input} value={pass} onChangeText={setPass} secureTextEntry placeholder="••••••••" placeholderTextColor={C.mut} />
+          <TextInput style={s.input} value={pass} onChangeText={setPass} secureTextEntry placeholder="••••••••" placeholderTextColor={Theme.colors.textMuted} />
           <Text style={s.lbl}>CONFIRMAR SENHA</Text>
-          <TextInput style={s.input} value={pass2} onChangeText={setPass2} secureTextEntry placeholder="••••••••" placeholderTextColor={C.mut} />
+          <TextInput style={s.input} value={pass2} onChangeText={setPass2} secureTextEntry placeholder="••••••••" placeholderTextColor={Theme.colors.textMuted} />
           <TouchableOpacity style={[s.cta, busy && s.off]} disabled={busy} onPress={submit}>
             <Text style={s.ctaTxt}>{busy ? 'Criando conta…' : kind === 'owner' ? 'Criar conta do estabelecimento' : 'Criar minha conta'}</Text>
           </TouchableOpacity>
@@ -230,26 +236,28 @@ export default function Register() {
 }
 
 const s = StyleSheet.create({
-  wrap: { flex: 1, backgroundColor: C.bg },
+  wrap: { flex: 1, backgroundColor: Theme.colors.background },
   center: { padding: 24, gap: 14, flexGrow: 1, justifyContent: 'center', maxWidth: 480, width: '100%', alignSelf: 'center' },
-  h1: { color: C.txt, fontSize: 22, fontWeight: '800', textAlign: 'center', marginBottom: 10 },
-  h2: { color: C.txt, fontSize: 21, fontWeight: '800' },
-  sub: { color: C.mut, fontSize: 13, marginTop: 6, marginBottom: 10, lineHeight: 19 },
-  typeCard: { backgroundColor: C.card, borderWidth: 1, borderColor: C.line, borderRadius: 18, padding: 20 },
-  typeTitle: { color: C.txt, fontSize: 17, fontWeight: '800', marginTop: 8 },
-  typeSub: { color: C.mut, fontSize: 12.5, marginTop: 4, lineHeight: 18 },
+  h1: { ...Theme.typography.h2, color: Theme.colors.text, textAlign: 'center', marginBottom: 10 },
+  h2: { ...Theme.typography.h2, color: Theme.colors.text },
+  sub: { ...Theme.typography.caption, color: Theme.colors.textMuted, marginTop: 6, marginBottom: 10, lineHeight: 19 },
+  typeCard: { backgroundColor: Theme.colors.surface, borderWidth: 1, borderColor: Theme.colors.border, borderRadius: Theme.radius.lg, padding: 20, gap: 4 },
+  typeTitle: { ...Theme.typography.bodySemibold, color: Theme.colors.text, fontSize: 17, marginTop: 6 },
+  typeSub: { ...Theme.typography.caption, color: Theme.colors.textMuted, fontSize: 12.5, lineHeight: 18 },
   progress: { flexDirection: 'row', gap: 6, marginBottom: 16 },
-  bar: { flex: 1, height: 4, borderRadius: 2, backgroundColor: C.line },
-  lbl: { color: C.mut, fontSize: 10.5, fontWeight: '700', letterSpacing: 0.5, marginTop: 14, marginBottom: 4 },
-  input: { backgroundColor: C.card, borderColor: C.line, borderWidth: 1, borderRadius: 12, color: C.txt, padding: 14, fontSize: 15 },
-  cta: { backgroundColor: C.green, borderRadius: 12, padding: 15, marginTop: 20 },
+  bar: { flex: 1, height: 4, borderRadius: 2, backgroundColor: Theme.colors.border },
+  back: { color: Theme.colors.textMuted, marginBottom: 14 },
+  lbl: { color: Theme.colors.textMuted, fontSize: 10.5, fontWeight: '700', letterSpacing: 0.5, marginTop: 14, marginBottom: 4 },
+  input: { backgroundColor: Theme.colors.surface, borderColor: Theme.colors.border, borderWidth: 1, borderRadius: Theme.radius.md, color: Theme.colors.text, padding: 14, fontSize: 15 },
+  cta: { backgroundColor: Theme.colors.primary, borderRadius: Theme.radius.md, padding: 15, marginTop: 20 },
   off: { opacity: 0.5 },
-  ctaTxt: { color: '#04170b', fontWeight: '800', textAlign: 'center', fontSize: 15 },
-  link: { color: C.green, fontSize: 13, marginTop: 12 },
-  dev: { color: '#e8c968', fontSize: 12.5, marginTop: 10, backgroundColor: '#2e2713', padding: 10, borderRadius: 10 },
-  err: { color: C.danger, textAlign: 'center', marginTop: 16 },
-  terms: { color: C.mut, fontSize: 11, textAlign: 'center', marginTop: 14, lineHeight: 16 },
+  ctaTxt: { color: Theme.colors.text, fontWeight: '800', textAlign: 'center', fontSize: 15 },
+  link: { color: Theme.colors.primaryHover, fontSize: 13, marginTop: 12 },
+  devBanner: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: Theme.colors.warningDim, padding: 10, borderRadius: Theme.radius.sm, marginTop: 10 },
+  devTxt: { color: Theme.colors.text, fontSize: 12.5, flex: 1 },
+  err: { color: Theme.colors.danger, textAlign: 'center', marginTop: 16 },
+  terms: { color: Theme.colors.textMuted, fontSize: 11, textAlign: 'center', marginTop: 14, lineHeight: 16 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  chip: { backgroundColor: C.card, borderWidth: 1, borderColor: C.line, borderRadius: 18, paddingHorizontal: 13, paddingVertical: 8 },
-  chipOn: { backgroundColor: C.green, borderColor: C.green },
+  chip: { backgroundColor: Theme.colors.surface, borderWidth: 1, borderColor: Theme.colors.border, borderRadius: Theme.radius.full, paddingHorizontal: 13, paddingVertical: 8 },
+  chipOn: { backgroundColor: Theme.colors.primary, borderColor: Theme.colors.primary },
 });

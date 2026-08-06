@@ -39,13 +39,13 @@ export const Button: React.FC<ButtonProps> = ({
   const opacity = useSharedValue(1);
 
   const handlePressIn = () => {
-    scale.value = withSpring(0.96, { damping: 15, stiffness: 300 });
-    opacity.value = withTiming(0.8, { duration: 100 });
+    scale.value = withSpring(0.96, Theme.motion.springPress);
+    opacity.value = withTiming(0.8, { duration: Theme.motion.fast });
   };
 
   const handlePressOut = () => {
-    scale.value = withSpring(1, { damping: 15, stiffness: 300 });
-    opacity.value = withTiming(1, { duration: 150 });
+    scale.value = withSpring(1, Theme.motion.springPress);
+    opacity.value = withTiming(1, { duration: Theme.motion.fast });
   };
 
   const animatedStyle = useAnimatedStyle(() => {
@@ -59,8 +59,9 @@ export const Button: React.FC<ButtonProps> = ({
     switch (variant) {
       case 'primary':
         return {
+          // Texto escuro sobre o verde — branco/claro não fecha contraste AA (ver DESIGN.md).
           container: { backgroundColor: Theme.colors.primary, borderWidth: 1, borderColor: Theme.colors.primary },
-          text: { color: Theme.colors.background },
+          text: { color: Theme.colors.text },
         };
       case 'secondary':
         return {
@@ -74,8 +75,9 @@ export const Button: React.FC<ButtonProps> = ({
         };
       case 'ghost':
         return {
+          // primaryHover (mais escuro) em vez de primary puro — melhora contraste de texto sobre fundo claro.
           container: { backgroundColor: 'transparent', borderWidth: 0, borderColor: 'transparent' },
-          text: { color: Theme.colors.primary },
+          text: { color: Theme.colors.primaryHover },
         };
       case 'danger':
         return {
@@ -131,7 +133,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: Theme.radius.lg,
+    borderRadius: Theme.radius.md,
   },
   fullWidth: {
     width: '100%',
