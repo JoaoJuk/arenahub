@@ -1,18 +1,26 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet,
-  Linking, useWindowDimensions, Modal,
+  Linking, useWindowDimensions,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import { ArrowLeft, MapPin, Link as LinkIcon, CreditCard, Users, Star, CalendarX2, CheckSquare, Square, X, Trophy, Check } from 'lucide-react-native';
+import {
+  ArrowLeft, MapPin, Link as LinkIcon, CreditCard, Users, Star, CalendarX2,
+  CheckSquare, Square, X, Trophy, Check, Heart,
+} from 'lucide-react-native';
 import { api } from '@/api';
-import { Theme, brl } from '@/theme';
+import { Theme, brl, type Colors } from '@/theme';
+import { useColors, useStyles } from '@/theme-context';
+import { useIsFavorite, toggleFavorite } from '@/favorites';
 import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
 import { Skeleton } from '@/components/Skeleton';
+import { AmenityRow } from '@/components/AmenityRow';
+import { MapPreview } from '@/components/MapPreview';
+import { Dialog } from '@/components/Dialog';
 
 // Alvo mínimo de toque: 44pt no HIG, 48dp no Material 3. Usamos 48 para
 // satisfazer as duas plataformas com um número só.
@@ -20,6 +28,11 @@ const HIT = 48;
 // Teto de escala de fonte: deixa o Dynamic Type / font scaling funcionar sem
 // estourar chips de largura fixa (dia, horário).
 const MAX_SCALE = 1.6;
+
+const HERO_H = 300;
+// A folha branca sobe por cima da foto — é o que dá a leitura de "cartão de
+// conteúdo" das telas do Stitch.
+const SHEET_OVERLAP = 32;
 
 function nextDays(n = 10) {
   return Array.from({ length: n }, (_, i) => {
@@ -36,6 +49,8 @@ function nextDays(n = 10) {
 const hourLabel = (h: number) => `${String(h).padStart(2, '0')}:00`;
 
 export default function ArenaScreen() {
+  const c = useColors();
+  const s = useStyles(styles);
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { width } = useWindowDimensions();
@@ -54,6 +69,7 @@ export default function ArenaScreen() {
   const [error, setError] = useState('');
   const [loadingSlots, setLoadingSlots] = useState(true);
   const [photoIdx, setPhotoIdx] = useState(0);
+  const favorite = useIsFavorite(id!);
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [showRulesModal, setShowRulesModal] = useState(false);
   const [hasScrolledToBottom, setHasScrolledToBottom] = useState(false);
@@ -132,16 +148,14 @@ export default function ArenaScreen() {
     galleryRef.current?.scrollTo({ x: 0, animated: false });
   }, [court?.id]);
 
-  const showingCourtPhoto = !!court?.photoUrl && photoIdx === 0;
-
   const dayIdx = days.findIndex((d) => d.iso === date);
   const goNextDay = () => { if (dayIdx < days.length - 1) setDate(days[dayIdx + 1].iso); };
 
   const price = court?.pricePerHour ?? 0;
   const ctaPrice = mode === 'split' ? Math.ceil(price / splitCount) : price;
 
-  // 4 colunas, largura calculada — '23%' + gap estourava a linha em telas estreitas.
-  const hourW = (Math.min(width, 520) - Theme.spacing.md * 2 - Theme.spacing.sm * 3) / 4;
+  // 3 colunas, largura calculada — porcentagem + gap estourava a linha em telas estreitas.
+  const hourW = (W - Theme.spacing.margin * 2 - Theme.spacing.stack * 2) / 3;
 
   async function reserve() {
     if (!slot || !court) return;
@@ -163,11 +177,11 @@ export default function ArenaScreen() {
   if (!arena) return (
     <View style={s.wrap}>
       <Stack.Screen options={{ headerShown: false }} />
-      <Skeleton width="100%" height={260} borderRadius={0} />
-      <View style={{ padding: Theme.spacing.md, gap: Theme.spacing.md }}>
-        <Skeleton width="60%" height={32} />
-        <Skeleton width="40%" height={20} />
-        <Skeleton width="100%" height={100} />
+      <Skeleton width="100%" height={HERO_H} borderRadius={0} />
+      <View style={{ padding: Theme.spacing.margin, gap: Theme.spacing.md }}>
+        <Skeleton width="70%" height={34} />
+        <Skeleton width="45%" height={20} />
+        <Skeleton width="100%" height={120} borderRadius={Theme.radius.lg} />
       </View>
     </View>
   );
@@ -196,9 +210,8 @@ export default function ArenaScreen() {
               <Image
                 key={p}
                 source={{ uri: p }}
-                style={{ width: W, height: 280, backgroundColor: Theme.colors.border }}
+                style={{ width: W, height: HERO_H, backgroundColor: c.surfaceHigh }}
                 contentFit="cover"
-                transition={220}
                 cachePolicy="memory-disk"
                 accessibilityLabel={
                   i === 0 && court?.photoUrl
@@ -208,25 +221,15 @@ export default function ArenaScreen() {
               />
             ))}
           </ScrollView>
+
           {/* Scrim de legibilidade — LinearGradient real no lugar de 4 Views de
               opacidade fixa, que criavam degraus visíveis sobre a foto. */}
           <LinearGradient
-            colors={['rgba(11,15,13,0)', 'rgba(11,15,13,0.55)', 'rgba(11,15,13,0.92)']}
-            locations={[0, 0.45, 1]}
-            style={s.scrim}
+            colors={['rgba(11,15,13,0.45)', 'rgba(11,15,13,0)']}
+            style={s.scrimTop}
             pointerEvents="none"
           />
-          <View style={s.heroTxt} pointerEvents="none">
-            <Text style={s.heroName} maxFontSizeMultiplier={MAX_SCALE}>{arena.name}</Text>
-            <View style={s.heroMeta}>
-              <Star color={Theme.colors.warning} fill={Theme.colors.warning} size={14} />
-              <Text style={s.heroRating}>{arena.rating} · avaliações</Text>
-            </View>
-            <View style={s.heroMeta}>
-              <MapPin color={Theme.colors.onPhotoMuted} size={14} />
-              <Text style={s.heroAddr} numberOfLines={1}>{arena.address} — {arena.city}</Text>
-            </View>
-          </View>
+
           {photos.length > 1 && (
             <View style={s.dots} pointerEvents="none">
               {photos.map((_, i) => (
@@ -234,30 +237,64 @@ export default function ArenaScreen() {
               ))}
             </View>
           )}
-          <TouchableOpacity
-            style={[s.back, { top: insets.top + Theme.spacing.sm }]}
-            onPress={() => router.back()}
-            accessibilityRole="button"
-            accessibilityLabel="Voltar"
-          >
-            <ArrowLeft color={Theme.colors.onPhoto} size={24} />
-          </TouchableOpacity>
 
-          {/* Sem este selo a troca de foto ao escolher a quadra fica ambígua —
-              o usuário vê a imagem mudar mas não sabe que é a quadra dele. */}
-          {showingCourtPhoto && (
-            <View style={[s.courtBadge, { top: insets.top + Theme.spacing.sm }]} pointerEvents="none">
-              <Text style={s.courtBadgeTxt} numberOfLines={1} maxFontSizeMultiplier={MAX_SCALE}>{court.name}</Text>
-            </View>
-          )}
+          <View style={[s.heroBar, { top: insets.top + Theme.spacing.sm }]}>
+            <TouchableOpacity
+              style={s.glassBtn}
+              onPress={() => router.back()}
+              accessibilityRole="button"
+              accessibilityLabel="Voltar"
+            >
+              <ArrowLeft color={c.onPhoto} size={22} />
+            </TouchableOpacity>
+
+            {/* Sem este selo a troca de foto ao escolher a quadra fica ambígua —
+                o usuário vê a imagem mudar mas não sabe que é a quadra dele. */}
+            {!!court?.photoUrl && photoIdx === 0 && (
+              <View style={s.courtBadge} pointerEvents="none">
+                <Text style={s.courtBadgeTxt} numberOfLines={1} maxFontSizeMultiplier={MAX_SCALE}>{court.name}</Text>
+              </View>
+            )}
+
+            <TouchableOpacity
+              style={s.glassBtn}
+              onPress={() => toggleFavorite(id!)}
+              accessibilityRole="button"
+              accessibilityLabel={favorite ? 'Remover dos favoritos' : 'Salvar nos favoritos'}
+            >
+              <Heart
+                color={favorite ? c.danger : c.onPhoto}
+                fill={favorite ? c.danger : 'transparent'}
+                size={22}
+              />
+            </TouchableOpacity>
+          </View>
         </View>
 
-        {/* 2. Seleção de quadras */}
-        <Text style={s.section}>Quadras</Text>
+        {/* 2. Folha de conteúdo sobre a foto */}
+        <View style={s.sheet}>
+          <View style={s.titleRow}>
+            <Text style={s.name} maxFontSizeMultiplier={MAX_SCALE}>{arena.name}</Text>
+            <View style={s.ratingPill}>
+              <Star color={c.text} fill={c.text} size={14} />
+              <Text style={s.ratingTxt}>{arena.rating}</Text>
+            </View>
+          </View>
+
+          <View style={s.addressRow}>
+            <MapPin color={c.textMuted} size={18} />
+            <Text style={s.address} numberOfLines={2}>{arena.address} — {arena.city}</Text>
+          </View>
+
+          <AmenityRow />
+        </View>
+
+        {/* 3. Seleção de quadras */}
+        <Text style={s.section}>Selecione a Quadra</Text>
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
-          contentContainerStyle={{ paddingHorizontal: Theme.spacing.md, gap: Theme.spacing.sm }}
+          contentContainerStyle={{ paddingHorizontal: Theme.spacing.margin, gap: Theme.spacing.stack }}
           accessibilityRole="radiogroup"
         >
           {arena.courts.map((c: any) => {
@@ -265,18 +302,33 @@ export default function ArenaScreen() {
             return (
               <TouchableOpacity
                 key={c.id}
-                style={[s.pill, sel && s.pillSel]}
+                style={[s.courtCard, sel && s.courtCardSel]}
                 onPress={() => setCourt(c)}
+                activeOpacity={0.85}
                 accessibilityRole="radio"
                 accessibilityState={{ selected: sel }}
                 accessibilityLabel={`${c.name}, ${brl(c.pricePerHour)} por hora`}
               >
-                <View style={s.pillTop}>
-                  {/* Ícone além da cor — seleção não pode depender só de cor (HIG 4.3 / Material R6.8). */}
-                  {sel && <Check color={Theme.colors.onPrimary} size={14} strokeWidth={3} />}
-                  <Text style={[s.pillName, sel && s.onPrimaryTxt]}>{c.name}</Text>
+                <Image
+                  source={{ uri: c.photoUrl || arena.photoUrl || undefined }}
+                  style={[StyleSheet.absoluteFill, { opacity: sel ? 0.45 : 0.9 }]}
+                  contentFit="cover"
+                  cachePolicy="memory-disk"
+                />
+                <LinearGradient
+                  colors={['rgba(11,15,13,0.15)', 'rgba(11,15,13,0.88)']}
+                  style={StyleSheet.absoluteFill}
+                />
+                {/* Ícone além da cor — seleção não pode depender só de cor (HIG 4.3 / Material R6.8). */}
+                {sel && (
+                  <View style={s.courtCheck}>
+                    <Check color={c.onAccent} size={14} strokeWidth={3} />
+                  </View>
+                )}
+                <View style={s.courtInfo}>
+                  <Text style={s.courtName} numberOfLines={1} maxFontSizeMultiplier={MAX_SCALE}>{c.name}</Text>
+                  <Text style={s.courtPrice}>{brl(c.pricePerHour)}/h</Text>
                 </View>
-                <Text style={[s.pillPrice, sel && s.pillPriceSel]}>{brl(c.pricePerHour)}/h</Text>
               </TouchableOpacity>
             );
           })}
@@ -290,7 +342,7 @@ export default function ArenaScreen() {
         >
           <Card padding="md" style={s.eventBanner}>
             <View style={s.eventIconWrap}>
-              <Trophy color={Theme.colors.primary} size={20} strokeWidth={1.7} />
+              <Trophy color={c.primary} size={20} strokeWidth={1.7} />
             </View>
             <View style={{ flex: 1 }}>
               <Text style={s.eventTitle}>Eventos da Arena</Text>
@@ -299,12 +351,12 @@ export default function ArenaScreen() {
           </Card>
         </TouchableOpacity>
 
-        {/* 3. Calendário deslizante */}
+        {/* 4. Calendário deslizante */}
         <Text style={s.section}>Data</Text>
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
-          contentContainerStyle={{ paddingHorizontal: Theme.spacing.md, gap: Theme.spacing.sm }}
+          contentContainerStyle={{ paddingHorizontal: Theme.spacing.margin, gap: Theme.spacing.stack }}
           accessibilityRole="radiogroup"
         >
           {days.map((d) => {
@@ -318,22 +370,22 @@ export default function ArenaScreen() {
                 accessibilityState={{ selected: sel }}
                 accessibilityLabel={d.long}
               >
-                <Text style={[s.dayNum, sel && s.onPrimaryTxt]} maxFontSizeMultiplier={MAX_SCALE}>{d.dayNum}</Text>
                 <Text style={[s.dayName, sel && s.dayNameSel]} maxFontSizeMultiplier={MAX_SCALE}>{d.weekday}</Text>
+                <Text style={[s.dayNum, sel && s.dayNumSel]} maxFontSizeMultiplier={MAX_SCALE}>{d.dayNum}</Text>
               </TouchableOpacity>
             );
           })}
         </ScrollView>
 
-        {/* 4. Grade de horários */}
-        <Text style={s.section}>Horários</Text>
+        {/* 5. Grade de horários */}
+        <Text style={s.section}>Horários Disponíveis</Text>
         {loadingSlots ? (
           <View style={s.grid}>
-            {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => <Skeleton key={i} width={hourW} height={52} borderRadius={Theme.radius.md} />)}
+            {[1, 2, 3, 4, 5, 6].map((i) => <Skeleton key={i} width={hourW} height={HIT} borderRadius={Theme.radius.md} />)}
           </View>
         ) : hours.length === 0 ? (
           <Card padding="lg" style={s.emptyState}>
-            <CalendarX2 color={Theme.colors.textMuted} size={40} />
+            <CalendarX2 color={c.textMuted} size={40} />
             <Text style={s.emptyTitle}>Todos os horários estão esgotados para este dia</Text>
             {dayIdx < days.length - 1 && (
               <Button title="Ver horários de amanhã" variant="outline" onPress={goNextDay} style={{ marginTop: Theme.spacing.sm }} />
@@ -361,9 +413,9 @@ export default function ArenaScreen() {
           </View>
         )}
 
-        {/* 5. Pagamento e divisão */}
+        {/* 6. Pagamento e divisão */}
         <Text style={s.section}>Pagamento</Text>
-        <Card padding="none" style={s.payCard}>
+        <Card padding="none" style={s.payCard} variant="filled">
           <View accessibilityRole="radiogroup">
             {([
               ['split', LinkIcon, 'Dividir por link com os amigos'],
@@ -380,7 +432,7 @@ export default function ArenaScreen() {
                   accessibilityState={{ selected: sel }}
                   accessibilityLabel={label}
                 >
-                  <Ico color={sel ? Theme.colors.text : Theme.colors.textMuted} size={20} />
+                  <Ico color={sel ? c.text : c.textMuted} size={20} />
                   <Text style={[s.payTxt, sel && s.payTxtSel]}>{label}</Text>
                   <View style={[s.radio, sel && s.radioSel]}>{sel && <View style={s.radioDot} />}</View>
                 </TouchableOpacity>
@@ -428,11 +480,11 @@ export default function ArenaScreen() {
                 accessibilityHint="Permite que jogadores avulsos entrem e paguem a cota para jogar"
               >
                 {isPublic ? (
-                  <CheckSquare color={Theme.colors.primary} size={22} />
+                  <CheckSquare color={c.primary} size={22} />
                 ) : (
-                  <Square color={Theme.colors.textMuted} size={22} />
+                  <Square color={c.textMuted} size={22} />
                 )}
-                <View style={{ flex: 1, marginLeft: 12 }}>
+                <View style={{ flex: 1, marginLeft: Theme.spacing.stack }}>
                   <Text style={s.publicTitle}>Partida Aberta (Completar Time)</Text>
                   <Text style={s.publicSub}>Permitir que jogadores avulsos entrem e paguem a cota para jogar.</Text>
                 </View>
@@ -440,6 +492,12 @@ export default function ArenaScreen() {
             </View>
           )}
         </Card>
+
+        {/* 7. Localização */}
+        <Text style={s.section}>Localização</Text>
+        <View style={{ paddingHorizontal: Theme.spacing.margin }}>
+          <MapPreview name={arena.name} address={arena.address} city={arena.city} />
+        </View>
 
         {!!error && <Text style={s.err} accessibilityRole="alert">{error}</Text>}
       </ScrollView>
@@ -462,7 +520,7 @@ export default function ArenaScreen() {
               accessibilityState={{ checked: termsAccepted }}
               accessibilityLabel="Li e aceito as regras da arena"
             >
-              {termsAccepted ? <CheckSquare color={Theme.colors.primary} size={22} /> : <Square color={Theme.colors.textMuted} size={22} />}
+              {termsAccepted ? <CheckSquare color={c.primary} size={22} /> : <Square color={c.textMuted} size={22} />}
             </TouchableOpacity>
             <Text style={s.termsText}>
               Eu li e aceito as{' '}
@@ -477,185 +535,222 @@ export default function ArenaScreen() {
           </View>
         )}
 
+        {!!slot && (
+          <View style={s.totalRow}>
+            <Text style={s.totalLabel}>Total</Text>
+            <Text style={s.totalValue}>
+              {brl(price)}
+              {mode === 'split' && <Text style={s.totalHint}>  ·  {splitCount} pessoas · {slot}</Text>}
+            </Text>
+          </View>
+        )}
+
         <Button
           fullWidth
-          size="md"
+          size="lg"
           disabled={!slot || busy || !termsAccepted}
           loading={busy}
           onPress={reserve}
           title={!slot ? 'Escolha um horário' : !termsAccepted ? 'Aceite os Termos' : mode === 'split' ? `Reservar por ${brl(ctaPrice)}/pessoa` : `Reservar por ${brl(ctaPrice)}`}
         />
-        {!!slot && mode === 'split' && (
-          <Text style={s.ctaSub}>Total {brl(price)} · {slot} · {splitCount} pessoas</Text>
-        )}
       </View>
 
-      {/* Modal de Regras */}
-      <Modal
-        visible={showRulesModal}
-        transparent
-        animationType="fade"
-        // Sem isto o botão físico de voltar do Android não fecha o modal.
-        onRequestClose={() => setShowRulesModal(false)}
-      >
-        <View style={s.modalOverlay}>
-          <View style={s.modalCard} accessibilityViewIsModal>
-            <View style={s.modalHeader}>
-              <Text style={s.modalTitle} accessibilityRole="header">Termos e Regras</Text>
-              <TouchableOpacity
-                onPress={() => setShowRulesModal(false)}
-                style={s.modalClose}
-                accessibilityRole="button"
-                accessibilityLabel="Fechar"
-              >
-                <X color={Theme.colors.text} size={24} />
-              </TouchableOpacity>
-            </View>
-            <ScrollView
-              style={{ maxHeight: 350 }}
-              showsVerticalScrollIndicator={true}
-              onScroll={handleScroll}
-              scrollEventThrottle={16}
-              onContentSizeChange={handleContentSizeChange}
+      {/* Regras — conteúdo e comportamento idênticos; só o container deixou de ser
+          o `Modal` do RN, que na web não entrega toque a nada dentro dele. */}
+      <Dialog visible={showRulesModal} onRequestClose={() => setShowRulesModal(false)}>
+        <View style={s.modalCard}>
+          <View style={s.modalHeader}>
+            <Text style={s.modalTitle} accessibilityRole="header">Termos e Regras</Text>
+            <TouchableOpacity
+              onPress={() => setShowRulesModal(false)}
+              style={s.modalClose}
+              accessibilityRole="button"
+              accessibilityLabel="Fechar"
             >
-              <Text style={s.modalText}>{rulesText}</Text>
-            </ScrollView>
-            <Button
-              title={hasScrolledToBottom ? 'Li e Aceito as Regras' : 'Role até o final para aceitar'}
-              disabled={!hasScrolledToBottom}
-              onPress={() => {
-                setTermsAccepted(true);
-                setShowRulesModal(false);
-              }}
-              style={{ marginTop: Theme.spacing.lg }}
-            />
+              <X color={c.text} size={24} />
+            </TouchableOpacity>
           </View>
+          <ScrollView
+            style={{ maxHeight: 350 }}
+            showsVerticalScrollIndicator={true}
+            onScroll={handleScroll}
+            scrollEventThrottle={16}
+            onContentSizeChange={handleContentSizeChange}
+          >
+            <Text style={s.modalText}>{rulesText}</Text>
+          </ScrollView>
+          <Button
+            title={hasScrolledToBottom ? 'Li e Aceito as Regras' : 'Role até o final para aceitar'}
+            disabled={!hasScrolledToBottom}
+            onPress={() => {
+              setTermsAccepted(true);
+              setShowRulesModal(false);
+            }}
+            style={{ marginTop: Theme.spacing.lg }}
+          />
         </View>
-      </Modal>
+      </Dialog>
     </View>
   );
 }
 
-const s = StyleSheet.create({
-  wrap: { flex: 1, backgroundColor: Theme.colors.background },
+const styles = (c: Colors) => StyleSheet.create({
+  wrap: { flex: 1, backgroundColor: c.background },
 
-  scrim: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 180 },
-  heroTxt: { position: 'absolute', left: Theme.spacing.md, right: Theme.spacing.md, bottom: Theme.spacing.xl },
-  heroMeta: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 },
-  dots: { position: 'absolute', bottom: Theme.spacing.md, left: 0, right: 0, flexDirection: 'row', justifyContent: 'center', gap: 8 },
-  dot: { width: 6, height: 6, borderRadius: Theme.radius.full, backgroundColor: Theme.colors.onPhotoMuted, opacity: 0.5 },
-  dotActive: { backgroundColor: Theme.colors.onPhoto, width: 18 },
-  heroName: { ...Theme.typography.h1, color: Theme.colors.onPhoto },
-  heroRating: { ...Theme.typography.captionSemibold, color: Theme.colors.warning },
-  heroAddr: { ...Theme.typography.small, color: Theme.colors.onPhotoMuted, fontSize: 13 },
-  back: {
-    position: 'absolute', left: Theme.spacing.md,
+  scrimTop: { position: 'absolute', left: 0, right: 0, top: 0, height: 140 },
+  heroBar: {
+    position: 'absolute', left: Theme.spacing.margin, right: Theme.spacing.margin,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: Theme.spacing.sm,
+  },
+  glassBtn: {
     width: HIT, height: HIT, borderRadius: Theme.radius.full,
-    backgroundColor: Theme.colors.scrim,
+    backgroundColor: c.scrim,
     alignItems: 'center', justifyContent: 'center',
   },
-
   courtBadge: {
-    position: 'absolute', right: Theme.spacing.md,
-    maxWidth: '55%', height: 32, justifyContent: 'center',
-    paddingHorizontal: 12, borderRadius: Theme.radius.full,
-    backgroundColor: Theme.colors.scrim,
+    flexShrink: 1, maxWidth: '55%', height: 32, justifyContent: 'center',
+    paddingHorizontal: Theme.spacing.stack, borderRadius: Theme.radius.full,
+    backgroundColor: c.scrim,
   },
-  courtBadgeTxt: { ...Theme.typography.small, color: Theme.colors.onPhoto, fontSize: 12 },
+  courtBadgeTxt: { ...Theme.typography.small, color: c.onPhoto },
 
-  section: { ...Theme.typography.h3, fontFamily: Theme.fonts.display, color: Theme.colors.text, paddingHorizontal: Theme.spacing.md, marginTop: Theme.spacing.xl, marginBottom: Theme.spacing.sm },
+  dots: { position: 'absolute', bottom: SHEET_OVERLAP + Theme.spacing.stack, left: 0, right: 0, flexDirection: 'row', justifyContent: 'center', gap: 6 },
+  dot: { width: 6, height: 6, borderRadius: Theme.radius.full, backgroundColor: c.onPhotoMuted, opacity: 0.55 },
+  dotActive: { backgroundColor: c.onPhoto, width: 18, opacity: 1 },
 
-  // Texto sobre o verde de marca (chip/dia selecionado). Necessário porque
-  // `text` inverte no tema escuro e deixaria branco sobre verde.
-  onPrimaryTxt: { color: Theme.colors.onPrimary },
+  sheet: {
+    marginTop: -SHEET_OVERLAP,
+    backgroundColor: c.surface,
+    borderTopLeftRadius: Theme.radius.xl,
+    borderTopRightRadius: Theme.radius.xl,
+    paddingHorizontal: Theme.spacing.margin,
+    paddingTop: Theme.spacing.lg,
+    paddingBottom: Theme.spacing.md,
+    gap: Theme.spacing.stack,
+  },
+  titleRow: { flexDirection: 'row', alignItems: 'flex-start', gap: Theme.spacing.stack },
+  name: { ...Theme.typography.h1, color: c.text, flex: 1 },
+  ratingPill: {
+    flexDirection: 'row', alignItems: 'center', gap: Theme.spacing.xs,
+    height: 32, paddingHorizontal: Theme.spacing.stack,
+    borderRadius: Theme.radius.full, backgroundColor: c.surfaceHigh,
+  },
+  ratingTxt: { ...Theme.typography.label, color: c.text },
+  addressRow: { flexDirection: 'row', alignItems: 'flex-start', gap: Theme.spacing.sm },
+  address: { ...Theme.typography.caption, color: c.textMuted, flex: 1 },
 
-  pill: { backgroundColor: Theme.colors.surface, borderWidth: 1, borderColor: Theme.colors.border, borderRadius: Theme.radius.full, paddingHorizontal: 20, paddingVertical: 12, minHeight: HIT, justifyContent: 'center' },
-  pillSel: { backgroundColor: Theme.colors.primary, borderColor: Theme.colors.primary },
-  pillTop: { flexDirection: 'row', alignItems: 'center', gap: 5 },
-  pillName: { ...Theme.typography.captionSemibold, color: Theme.colors.text },
-  pillPrice: { ...Theme.typography.price, fontSize: 12, color: Theme.colors.textMuted, marginTop: 4 },
-  pillPriceSel: { color: Theme.colors.onPrimaryMuted },
+  section: {
+    ...Theme.typography.h2, color: c.text,
+    paddingHorizontal: Theme.spacing.margin,
+    marginTop: Theme.spacing.section, marginBottom: Theme.spacing.md,
+  },
+
+  courtCard: {
+    width: 168, height: 120, borderRadius: Theme.radius.lg, overflow: 'hidden',
+    // Fundo escuro fixo: é o que fica atrás da foto da quadra, e o nome em cima
+    // usa `onPhoto`. Se seguisse o tema, no escuro viraria branco e lavaria a foto.
+    backgroundColor: '#1A1C1C', justifyContent: 'flex-end',
+    padding: Theme.spacing.stack,
+    borderWidth: 2, borderColor: 'transparent',
+  },
+  courtCardSel: { borderColor: c.accent },
+  courtCheck: {
+    position: 'absolute', top: Theme.spacing.sm, right: Theme.spacing.sm,
+    width: 24, height: 24, borderRadius: Theme.radius.full,
+    backgroundColor: c.accent, alignItems: 'center', justifyContent: 'center',
+  },
+  courtInfo: { gap: 2 },
+  courtName: { ...Theme.typography.label, color: c.onPhoto },
+  courtPrice: { ...Theme.typography.price, fontSize: 12, color: c.onPhotoMuted },
 
   eventBanner: {
-    flexDirection: 'row', alignItems: 'center', gap: 14,
-    marginHorizontal: Theme.spacing.md, marginTop: Theme.spacing.lg,
+    flexDirection: 'row', alignItems: 'center', gap: Theme.spacing.stack,
+    marginHorizontal: Theme.spacing.margin, marginTop: Theme.spacing.lg,
   },
-  eventIconWrap: { width: 40, height: 40, borderRadius: Theme.radius.sm, backgroundColor: Theme.colors.primaryDim, alignItems: 'center', justifyContent: 'center' },
-  eventTitle: { ...Theme.typography.captionSemibold, fontFamily: Theme.fonts.display, color: Theme.colors.text, letterSpacing: 0.2 },
-  eventSub: { ...Theme.typography.small, color: Theme.colors.textMuted, fontSize: 13, lineHeight: 18, marginTop: 4 },
+  eventIconWrap: { width: 40, height: 40, borderRadius: Theme.radius.sm, backgroundColor: c.primaryDim, alignItems: 'center', justifyContent: 'center' },
+  eventTitle: { ...Theme.typography.captionSemibold, color: c.text },
+  eventSub: { ...Theme.typography.small, color: c.textMuted, lineHeight: 18, marginTop: 4 },
 
   day: {
-    backgroundColor: Theme.colors.surface, borderWidth: 1, borderColor: Theme.colors.border, borderRadius: Theme.radius.lg,
-    width: 64, minHeight: HIT + 16, paddingVertical: 12, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: c.surfaceGray, borderRadius: Theme.radius.md,
+    width: 64, height: 80, alignItems: 'center', justifyContent: 'center', gap: 2,
   },
-  daySel: { backgroundColor: Theme.colors.primary, borderColor: Theme.colors.primary },
-  dayNum: { ...Theme.typography.price, fontSize: 18, color: Theme.colors.text },
-  dayName: { ...Theme.typography.small, color: Theme.colors.textMuted, textTransform: 'capitalize', marginTop: 2 },
-  dayNameSel: { color: Theme.colors.onPrimaryMuted },
+  // `selected`, e não `inverse`: no escuro o item escolhido vira o bloco neon
+  // (é o que a tela Detalhes da Arena - Dark Kinetic mostra), não um bloco branco.
+  daySel: { backgroundColor: c.selected },
+  dayName: { ...Theme.typography.small, color: c.textMuted, textTransform: 'uppercase' },
+  dayNameSel: { color: c.onSelected, opacity: 0.7 },
+  dayNum: { ...Theme.typography.price, fontSize: 22, color: c.text },
+  dayNumSel: { color: c.onSelected },
 
-  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: Theme.spacing.sm, paddingHorizontal: Theme.spacing.md },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: Theme.spacing.stack, paddingHorizontal: Theme.spacing.margin },
   hour: {
-    minHeight: 52, paddingVertical: 14, borderRadius: Theme.radius.md,
-    backgroundColor: Theme.colors.surface, borderWidth: 1, borderColor: Theme.colors.border,
+    height: HIT, borderRadius: Theme.radius.md,
+    backgroundColor: c.surfaceGray,
+    borderWidth: 2, borderColor: 'transparent',
     alignItems: 'center', justifyContent: 'center',
   },
-  // Selecionado ganha borda grossa além da cor de fundo, para o estado sobreviver
-  // sem enxergar cor (HIG 4.3 / Material R6.8).
-  hourSel: { backgroundColor: Theme.colors.primary, borderColor: Theme.colors.primaryHover, borderWidth: 2 },
-  hourTxt: { ...Theme.typography.price, fontSize: 15, color: Theme.colors.text },
-  hourTxtSel: { color: Theme.colors.onPrimary },
+  // Selecionado troca o FUNDO (claro → preto) além da cor do texto, para o estado
+  // sobreviver sem enxergar cor (HIG 4.3 / Material R6.8).
+  hourSel: { backgroundColor: c.selected, borderColor: c.accent },
+  hourTxt: { ...Theme.typography.label, color: c.text },
+  hourTxtSel: { color: c.onSelected },
 
-  emptyState: { alignItems: 'center', gap: 12, marginHorizontal: Theme.spacing.md, paddingVertical: Theme.spacing.xxl },
-  emptyTitle: { ...Theme.typography.captionSemibold, fontFamily: Theme.fonts.body, color: Theme.colors.textMuted, fontSize: 15, textAlign: 'center', lineHeight: 22, maxWidth: '80%' },
+  emptyState: { alignItems: 'center', gap: Theme.spacing.stack, marginHorizontal: Theme.spacing.margin, paddingVertical: Theme.spacing.xl },
+  emptyTitle: { ...Theme.typography.caption, color: c.textMuted, textAlign: 'center', maxWidth: '80%' },
 
-  payCard: { marginHorizontal: Theme.spacing.md },
-  payOpt: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 18, paddingHorizontal: 16, minHeight: HIT },
-  payDivider: { borderTopWidth: 1, borderTopColor: Theme.colors.border },
-  payTxt: { ...Theme.typography.caption, color: Theme.colors.textMuted, fontSize: 15, flex: 1 },
-  payTxtSel: { fontFamily: Theme.fonts.bodySemibold, color: Theme.colors.text },
-  radio: { width: 22, height: 22, borderRadius: Theme.radius.full, borderWidth: 2, borderColor: Theme.colors.textMuted, alignItems: 'center', justifyContent: 'center' },
-  radioSel: { borderColor: Theme.colors.primary },
-  radioDot: { width: 12, height: 12, borderRadius: Theme.radius.full, backgroundColor: Theme.colors.primary },
+  payCard: { marginHorizontal: Theme.spacing.margin },
+  payOpt: { flexDirection: 'row', alignItems: 'center', gap: Theme.spacing.stack, paddingVertical: Theme.spacing.md, paddingHorizontal: Theme.spacing.md, minHeight: HIT },
+  payDivider: { borderTopWidth: 1, borderTopColor: c.border },
+  payTxt: { ...Theme.typography.caption, color: c.textMuted, flex: 1 },
+  payTxtSel: { fontFamily: Theme.fonts.bodySemibold, color: c.text },
+  radio: { width: 22, height: 22, borderRadius: Theme.radius.full, borderWidth: 2, borderColor: c.textDim, alignItems: 'center', justifyContent: 'center' },
+  radioSel: { borderColor: c.primary },
+  radioDot: { width: 12, height: 12, borderRadius: Theme.radius.full, backgroundColor: c.primary },
 
   stepperRow: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 16,
-    paddingVertical: 16, borderTopWidth: 1, borderTopColor: Theme.colors.border,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Theme.spacing.md,
+    paddingVertical: Theme.spacing.md, borderTopWidth: 1, borderTopColor: c.border,
   },
-  stepperLabel: { ...Theme.typography.caption, color: Theme.colors.textMuted, fontSize: 15 },
-  stepper: { flexDirection: 'row', alignItems: 'center', backgroundColor: Theme.colors.background, borderRadius: Theme.radius.md, borderWidth: 1, borderColor: Theme.colors.border },
+  stepperLabel: { ...Theme.typography.caption, color: c.textMuted },
+  stepper: { flexDirection: 'row', alignItems: 'center', backgroundColor: c.surfaceGray, borderRadius: Theme.radius.md },
   stepBtn: { width: HIT, height: HIT, alignItems: 'center', justifyContent: 'center' },
-  stepTxt: { fontFamily: Theme.fonts.display, color: Theme.colors.primaryHover, fontSize: 24 },
-  stepTxtOff: { color: Theme.colors.textDim },
-  stepNum: { ...Theme.typography.price, fontSize: 18, color: Theme.colors.text, minWidth: 32, textAlign: 'center' },
+  stepTxt: { fontFamily: Theme.fonts.display, color: c.primary, fontSize: 24 },
+  stepTxtOff: { color: c.textDim },
+  stepNum: { ...Theme.typography.price, fontSize: 18, color: c.text, minWidth: 32, textAlign: 'center' },
 
   publicToggle: {
-    flexDirection: 'row', alignItems: 'center', padding: 16, minHeight: HIT,
-    borderTopWidth: 1, borderTopColor: Theme.colors.border,
-    backgroundColor: Theme.colors.primaryDim,
+    flexDirection: 'row', alignItems: 'center', padding: Theme.spacing.md, minHeight: HIT,
+    borderTopWidth: 1, borderTopColor: c.border,
+    backgroundColor: c.primaryDim,
   },
-  publicTitle: { ...Theme.typography.captionSemibold, color: Theme.colors.text, fontSize: 15 },
-  publicSub: { ...Theme.typography.small, color: Theme.colors.textMuted, fontSize: 13, marginTop: 2 },
+  publicTitle: { ...Theme.typography.captionSemibold, color: c.text },
+  publicSub: { ...Theme.typography.small, color: c.textMuted, marginTop: 2 },
 
-  err: { ...Theme.typography.caption, color: Theme.colors.danger, textAlign: 'center', marginTop: Theme.spacing.md, paddingHorizontal: Theme.spacing.md },
+  err: { ...Theme.typography.caption, color: c.danger, textAlign: 'center', marginTop: Theme.spacing.md, paddingHorizontal: Theme.spacing.margin },
 
   footer: {
     position: 'absolute', left: 0, right: 0, bottom: 0,
-    backgroundColor: Theme.colors.surface, borderTopWidth: 1, borderTopColor: Theme.colors.border,
-    paddingHorizontal: Theme.spacing.md, paddingTop: Theme.spacing.sm + 2,
+    backgroundColor: c.surface,
+    borderTopLeftRadius: Theme.radius.xl, borderTopRightRadius: Theme.radius.xl,
+    paddingHorizontal: Theme.spacing.margin, paddingTop: Theme.spacing.stack,
     alignItems: 'center',
+    ...Theme.shadow.up,
   },
-  ctaSub: { ...Theme.typography.price, color: Theme.colors.textMuted, fontSize: 12, lineHeight: 16, marginTop: 6 },
+  totalRow: { flexDirection: 'row', alignItems: 'baseline', gap: Theme.spacing.sm, width: '100%', marginBottom: Theme.spacing.sm },
+  totalLabel: { ...Theme.typography.small, color: c.textMuted },
+  totalValue: { ...Theme.typography.price, fontSize: 18, color: c.text },
+  totalHint: { ...Theme.typography.small, color: c.textMuted },
 
   termsRow: { flexDirection: 'row', alignItems: 'center', marginBottom: Theme.spacing.sm, width: '100%' },
   checkbox: { alignItems: 'center', justifyContent: 'center' },
-  termsText: { ...Theme.typography.small, color: Theme.colors.textMuted, fontSize: 12.5, lineHeight: 17, flex: 1, marginLeft: 10 },
-  termsLink: { fontFamily: Theme.fonts.bodySemibold, color: Theme.colors.primaryHover, textDecorationLine: 'underline' },
+  termsText: { ...Theme.typography.small, color: c.textMuted, lineHeight: 17, flex: 1, marginLeft: 10 },
+  termsLink: { fontFamily: Theme.fonts.bodySemibold, color: c.primary, textDecorationLine: 'underline' },
 
-  modalOverlay: { flex: 1, backgroundColor: Theme.colors.scrimStrong, justifyContent: 'center', alignItems: 'center', padding: 20 },
-  modalCard: { backgroundColor: Theme.colors.surface, width: '100%', maxWidth: 400, borderRadius: Theme.radius.lg, padding: Theme.spacing.lg, ...Theme.shadow.overlay },
+  modalCard: { backgroundColor: c.surface, width: '100%', maxWidth: 400, borderRadius: Theme.radius.lg, padding: Theme.spacing.lg, ...Theme.shadow.overlay },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
-  modalTitle: { ...Theme.typography.h3, fontFamily: Theme.fonts.display, color: Theme.colors.text },
+  modalTitle: { ...Theme.typography.h3, color: c.text },
   // -12 de margem compensa o alvo de 48 para o X não parecer deslocado do canto.
   modalClose: { width: HIT, height: HIT, alignItems: 'center', justifyContent: 'center', marginRight: -12 },
-  modalText: { ...Theme.typography.caption, color: Theme.colors.textMuted, lineHeight: 22 },
+  modalText: { ...Theme.typography.caption, color: c.textMuted, lineHeight: 22 },
 });

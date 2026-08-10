@@ -6,7 +6,7 @@
     "scheme": "liggo",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
-    "backgroundColor": "#FAFAFA",
+    "backgroundColor": "#F9F9F9",
     "icon": "./assets/logo.png",
     "ios": {
       "supportsTablet": false,
@@ -27,7 +27,7 @@
         {
           "image": "./assets/logo.png",
           "imageWidth": 160,
-          "backgroundColor": "#FAFAFA"
+          "backgroundColor": "#F9F9F9"
         }
       ]
     ],

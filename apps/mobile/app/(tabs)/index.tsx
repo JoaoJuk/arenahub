@@ -1,19 +1,22 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet,
-  RefreshControl, Linking, useWindowDimensions,
+  RefreshControl, useWindowDimensions,
   type NativeSyntheticEvent, type NativeScrollEvent,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { MapPin, ChevronDown, Bell, ChevronRight, Star } from 'lucide-react-native';
+import { MapPin, ChevronRight, Map as MapIcon, Heart } from 'lucide-react-native';
 import { api } from '@/api';
-import { Theme, brl } from '@/theme';
-import { Card } from '@/components/Card';
+import { Theme, type Colors } from '@/theme';
+import { useColors, useStyles } from '@/theme-context';
+import { useFavorites, toggleFavorite } from '@/favorites';
+import { AppHeader } from '@/components/AppHeader';
+import { SectionHeader } from '@/components/SectionHeader';
+import { ArenaCard } from '@/components/ArenaCard';
+import { RachaCard } from '@/components/RachaCard';
 import { Skeleton } from '@/components/Skeleton';
-
-const logoImg = require('../../assets/logo.png');
 
 // Banners promocionais da home. A arte é só a foto de fundo — todo o texto é
 // renderizado em RN por cima, para ficar nítido em qualquer densidade de tela e
@@ -57,23 +60,40 @@ const BANNERS = [
   },
 ] as const;
 
-const BANNER_GAP = 12;
+const BANNER_GAP = Theme.spacing.stack;
 
 const dayLabel = (iso: string) => {
   const today = new Date().toISOString().slice(0, 10);
   return iso === today ? 'Hoje' : iso.split('-').reverse().slice(0, 2).join('/');
 };
 
+const firstName = (full?: string | null) => (full || '').trim().split(' ')[0];
+
 export default function Explore() {
+  const c = useColors();
+  const s = useStyles(styles);
   const [arenas, setArenas] = useState<any[]>([]);
   const [matches, setMatches] = useState<any[]>([]);
+  const [me, setMe] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [bannerIdx, setBannerIdx] = useState(0);
+  const [joining, setJoining] = useState<string | null>(null);
+  const [notice, setNotice] = useState<{ kind: 'ok' | 'error'; msg: string } | null>(null);
+  const favoriteIds = useFavorites();
   const router = useRouter();
   const { width } = useWindowDimensions();
-  const W = Math.min(width, 520) - 32;
+  const W = Math.min(width, 520) - Theme.spacing.margin * 2;
   // Um pedaço do próximo banner fica visível, sinalizando que o carrossel rola.
-  const bannerW = W - 40;
+  const bannerW = W - 32;
+  // Mesma lógica na trilha de favoritos: o card não ocupa a largura toda para
+  // que a borda do próximo apareça e o gesto lateral fique óbvio.
+  const favW = Math.min(W - 40, 300);
+
+  // A ordem é a em que o usuário favoritou (ver src/favorites.ts), não a da API.
+  const favorites = useMemo(() => {
+    const byId = new Map(arenas.map((a) => [a.id, a]));
+    return favoriteIds.map((fid) => byId.get(fid)).filter(Boolean);
+  }, [arenas, favoriteIds]);
 
   const onBannerScroll = useCallback(
     (e: NativeSyntheticEvent<NativeScrollEvent>) => {
@@ -86,213 +106,287 @@ export default function Explore() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [a, m] = await Promise.all([api.arenas('', ''), api.openMatches().catch(() => [])]);
-      setArenas(a.slice(0, 3));
+      const [a, m, u] = await Promise.all([
+        api.arenas('', ''),
+        api.openMatches().catch(() => []),
+        api.me().catch(() => null),
+      ]);
+      // Guarda a lista inteira: a seção de favoritos precisa achar qualquer
+      // arena por id, não só as três que aparecem em "perto de você".
+      setArenas(a);
       setMatches(m);
+      setMe(u);
     } catch {} finally { setLoading(false); }
   }, []);
 
   useEffect(() => { load(); }, [load]);
 
+  // Antes o toque no racha abria o navegador na página de split, onde o jogador
+  // digitava nome e telefone de novo e a cota nascia solta, sem conta. Agora o
+  // pedido fica dentro do app e vai para a aprovação do organizador.
+  const requestJoin = useCallback(async (bookingId: string) => {
+    setJoining(bookingId);
+    setNotice(null);
+    try {
+      await api.requestToJoin(bookingId);
+      setNotice({ kind: 'ok', msg: 'Pedido enviado! Você entra assim que o organizador aceitar.' });
+      await load();
+    } catch (e: any) {
+      setNotice({ kind: 'error', msg: e.message });
+    } finally {
+      setJoining(null);
+    }
+  }, [load]);
+
   return (
-    <ScrollView
-      style={s.wrap}
-      contentContainerStyle={{ maxWidth: 520, width: '100%', alignSelf: 'center', paddingBottom: Theme.spacing.xxl }}
-      refreshControl={<RefreshControl refreshing={false} onRefresh={load} tintColor={Theme.colors.primary} />}
-    >
-      {/* 1. Header de localização e notificações */}
-      <View style={s.headerRow}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-          <View style={s.headerLogoWrap}>
-            <Image source={logoImg} style={s.headerLogo} contentFit="contain" />
-          </View>
-          <View>
-            <Text style={{ color: Theme.colors.textMuted, fontSize: 13, marginBottom: 2 }}>Bom dia, craque</Text>
-            <TouchableOpacity style={s.location} activeOpacity={0.7}>
-              <MapPin color={Theme.colors.primary} size={14} />
-              <Text style={s.locationTxt} numberOfLines={1}>
-                <Text style={{ fontWeight: '700', color: Theme.colors.text }}>Curitiba, PR</Text>
-              </Text>
-              <ChevronDown color={Theme.colors.primary} size={14} style={{ marginLeft: 2 }} />
-            </TouchableOpacity>
+    <View style={s.wrap}>
+      <AppHeader hasNotifications />
+
+      <ScrollView
+        contentContainerStyle={s.content}
+        refreshControl={<RefreshControl refreshing={false} onRefresh={load} tintColor={c.primary} />}
+      >
+        {!!notice && (
+          <TouchableOpacity
+            style={[s.notice, notice.kind === 'error' ? s.noticeError : s.noticeOk]}
+            activeOpacity={0.8}
+            onPress={() => setNotice(null)}
+            accessibilityRole="alert"
+            accessibilityLabel={notice.msg}
+          >
+            <Text style={[s.noticeTxt, { color: notice.kind === 'error' ? c.danger : c.primary }]}>
+              {notice.msg}
+            </Text>
+          </TouchableOpacity>
+        )}
+
+        {/* 1. Saudação e cidade */}
+        <View style={s.greeting}>
+          <Text style={s.hello}>Olá, {firstName(me?.name) || 'craque'}</Text>
+          <View style={s.location}>
+            <MapPin color={c.textMuted} size={16} />
+            <Text style={s.locationTxt} numberOfLines={1}>
+              {arenas[0]?.city || 'Curitiba, PR'}
+            </Text>
           </View>
         </View>
-        <TouchableOpacity style={s.bellBtn} activeOpacity={0.7}>
-          <Bell color={Theme.colors.text} size={24} />
-          <View style={s.bellBadge} />
-        </TouchableOpacity>
-      </View>
 
-      {/* 2. Carrossel de banners promocionais */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        decelerationRate="fast"
-        snapToInterval={bannerW + BANNER_GAP}
-        snapToAlignment="start"
-        onMomentumScrollEnd={onBannerScroll}
-        contentContainerStyle={{ paddingHorizontal: Theme.spacing.md, gap: BANNER_GAP, marginTop: Theme.spacing.lg }}
-      >
-        {BANNERS.map((b) => (
-          <TouchableOpacity
-            key={b.key}
-            activeOpacity={0.9}
-            style={[s.banner, { width: bannerW, height: bannerW / 1.85 }]}
-            onPress={() => b.href && router.push(b.href)}
-          >
-            <Image source={b.img} style={StyleSheet.absoluteFill} contentFit="cover" transition={200} cachePolicy="memory-disk" />
-            <LinearGradient
-              colors={['rgba(11,15,13,0.94)', 'rgba(11,15,13,0.78)', 'rgba(11,15,13,0.10)']}
-              locations={[0, 0.48, 1]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={StyleSheet.absoluteFill}
-            />
-            <View style={[s.bannerContent, { maxWidth: b.textWidth }]}>
-              <Text style={s.bannerEyebrow} numberOfLines={1}>{b.eyebrow}</Text>
-              <Text style={s.bannerPrefix}>{b.prefix}</Text>
-              <Text style={s.bannerHighlight} numberOfLines={1} adjustsFontSizeToFit>{b.highlight}</Text>
-              <Text style={s.bannerSub} numberOfLines={2}>{b.sub}</Text>
-              <View style={s.bannerCta}>
-                <Text style={s.bannerCtaTxt}>{b.cta}</Text>
-                <ChevronRight color={Theme.colors.text} size={13} />
-              </View>
-            </View>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
-
-      <View style={s.dots}>
-        {BANNERS.map((b, i) => (
-          <View key={b.key} style={[s.dot, i === bannerIdx && s.dotActive]} />
-        ))}
-      </View>
-
-      {/* 3. Matchmaking */}
-      <Text style={s.sectionTitle}>Rachas abertos</Text>
-      {loading ? (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 16, gap: 12 }}>
-          {[1, 2].map((i) => <Skeleton key={i} width={220} height={112} borderRadius={Theme.radius.md} />)}
-        </ScrollView>
-      ) : matches.length === 0 ? (
-        <Text style={s.emptyMatches}>Nenhum racha aberto agora. Reserve uma quadra e divida por link!</Text>
-      ) : (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 16, gap: 12 }}>
-          {matches.map((m) => (
-            <TouchableOpacity key={m.id} activeOpacity={0.8} onPress={() => Linking.openURL(m.shareUrl)}>
-              <Card padding="md" style={s.matchCard}>
-                <View style={s.matchBar} />
-                <View style={{ flex: 1 }}>
-                  <Text style={s.matchArena} numberOfLines={1}>{m.arena}</Text>
-                  <Text style={s.matchInfo}>{m.sport} · {dayLabel(m.date)} às {m.startTime}</Text>
-                  <Text style={s.matchSpots}>{m.spotsLeft} {m.spotsLeft === 1 ? 'vaga restante' : 'vagas restantes'}</Text>
-                  <View style={s.matchPriceRow}>
-                    <Text style={s.matchPrice}>{brl(m.shareAmount)}<Text style={s.matchPriceUnit}> / pessoa</Text></Text>
-                  </View>
+        {/* 2. Carrossel de banners promocionais (fotos do próprio app) */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          decelerationRate="fast"
+          snapToInterval={bannerW + BANNER_GAP}
+          snapToAlignment="start"
+          onMomentumScrollEnd={onBannerScroll}
+          contentContainerStyle={{ paddingHorizontal: Theme.spacing.margin, gap: BANNER_GAP }}
+        >
+          {BANNERS.map((b) => (
+            <TouchableOpacity
+              key={b.key}
+              activeOpacity={0.9}
+              style={[s.banner, { width: bannerW, height: bannerW / 1.85 }]}
+              onPress={() => b.href && router.push(b.href)}
+              accessibilityRole="button"
+              accessibilityLabel={`${b.eyebrow}: ${b.prefix} ${b.highlight}`}
+            >
+              <Image source={b.img} style={StyleSheet.absoluteFill} contentFit="cover" cachePolicy="memory-disk" />
+              <LinearGradient
+                colors={['rgba(11,15,13,0.94)', 'rgba(11,15,13,0.78)', 'rgba(11,15,13,0.10)']}
+                locations={[0, 0.48, 1]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={StyleSheet.absoluteFill}
+              />
+              <View style={[s.bannerContent, { maxWidth: b.textWidth }]}>
+                <Text style={s.bannerEyebrow} numberOfLines={1}>{b.eyebrow}</Text>
+                <Text style={s.bannerPrefix}>{b.prefix}</Text>
+                <Text style={s.bannerHighlight} numberOfLines={1} adjustsFontSizeToFit>{b.highlight}</Text>
+                <Text style={s.bannerSub} numberOfLines={2}>{b.sub}</Text>
+                <View style={s.bannerCta}>
+                  <Text style={s.bannerCtaTxt}>{b.cta}</Text>
+                  <ChevronRight color={c.onAccent} size={14} />
                 </View>
-              </Card>
+              </View>
             </TouchableOpacity>
           ))}
         </ScrollView>
-      )}
 
-      {/* 4. Arenas perto de você */}
-      <Text style={s.sectionTitle}>Arenas perto de você</Text>
-      <View style={{ paddingHorizontal: Theme.spacing.md }}>
-        {loading ? (
-          [1, 2, 3].map((i) => <Skeleton key={i} height={68} borderRadius={Theme.radius.md} style={{ marginBottom: 10 }} />)
-        ) : (
-          arenas.map((a, i) => (
-            <TouchableOpacity key={a.id} activeOpacity={0.7} style={[s.arenaRow, i === 0 && { borderTopWidth: 0 }]} onPress={() => router.push(`/arena/${a.id}`)}>
-              <Image source={{ uri: a.photoUrl }} style={s.arenaPh} contentFit="cover" transition={200} cachePolicy="memory-disk" />
-              <View style={{ flex: 1 }}>
-                <Text style={s.arenaName} numberOfLines={1}>{a.name}</Text>
-                <Text style={s.arenaSub} numberOfLines={1}>{a.sports.slice(0, 2).join(' · ')} · {a.city}</Text>
-              </View>
-              <View style={s.arenaRating}>
-                <Star color={Theme.colors.warning} fill={Theme.colors.warning} size={12} />
-                <Text style={s.arenaRatingTxt}>{a.rating}</Text>
-              </View>
-            </TouchableOpacity>
-          ))
+        <View style={s.dots}>
+          {BANNERS.map((b, i) => (
+            <View key={b.key} style={[s.dot, i === bannerIdx && s.dotActive]} />
+          ))}
+        </View>
+
+        {/* 3. Favoritos — só aparece depois que o usuário marcar a primeira arena.
+            Trilha horizontal (e não lista vertical como "perto de você") porque é
+            atalho para o que ele já conhece, não uma lista para explorar. */}
+        {favorites.length > 0 && (
+          <View style={s.sectionNoPad}>
+            <View style={{ paddingHorizontal: Theme.spacing.margin }}>
+              <SectionHeader
+                title="Seus Favoritos"
+                right={
+                  <View style={s.favCount}>
+                    <Heart color={c.primary} fill={c.primary} size={14} />
+                    <Text style={s.favCountTxt}>{favorites.length}</Text>
+                  </View>
+                }
+              />
+            </View>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              decelerationRate="fast"
+              snapToInterval={favW + Theme.spacing.stack}
+              snapToAlignment="start"
+              contentContainerStyle={{ paddingHorizontal: Theme.spacing.margin, gap: Theme.spacing.stack }}
+            >
+              {favorites.map((a: any) => (
+                <ArenaCard
+                  key={a.id}
+                  arena={a}
+                  style={{ width: favW }}
+                  favorite
+                  onToggleFavorite={() => toggleFavorite(a.id)}
+                  onPress={() => router.push(`/arena/${a.id}`)}
+                />
+              ))}
+            </ScrollView>
+          </View>
         )}
-      </View>
-    </ScrollView>
+
+        {/* 4. Matchmaking */}
+        <View style={s.section}>
+          <SectionHeader title="Rachas Abertos" />
+          {loading ? (
+            <View style={{ gap: Theme.spacing.md }}>
+              {[1, 2].map((i) => <Skeleton key={i} height={148} borderRadius={Theme.radius.lg} />)}
+            </View>
+          ) : matches.length === 0 ? (
+            <Text style={s.empty}>Nenhum racha aberto agora. Reserve uma quadra e divida por link!</Text>
+          ) : (
+            <View style={{ gap: Theme.spacing.md }}>
+              {matches.map((m) => (
+                <RachaCard
+                  key={m.id}
+                  match={m}
+                  dayLabel={dayLabel(m.date)}
+                  busy={joining === m.id}
+                  onRequestJoin={() => requestJoin(m.id)}
+                  // Já estando no racha, o card leva para a reserva.
+                  onPress={m.myStatus && m.myStatus !== 'requested'
+                    ? () => router.push(`/booking/${m.id}`)
+                    : undefined}
+                />
+              ))}
+            </View>
+          )}
+        </View>
+
+        {/* 5. Arenas perto de você */}
+        <View style={s.section}>
+          <SectionHeader
+            title="Arenas perto de você"
+            right={
+              // Abrirá o mapa com todas as quadras marcadas. Ainda não há tela de
+              // mapa nem coordenada no backend — por ora é só o símbolo.
+              // TODO: navegar para o mapa quando a tela existir.
+              <View style={s.mapBtn} accessibilityLabel="Ver arenas no mapa (em breve)">
+                <MapIcon color={c.text} size={20} />
+              </View>
+            }
+          />
+          {loading ? (
+            <View style={{ gap: Theme.spacing.lg }}>
+              {[1, 2].map((i) => <Skeleton key={i} height={260} borderRadius={Theme.radius.lg} />)}
+            </View>
+          ) : arenas.length === 0 ? (
+            <Text style={s.empty}>Nenhuma arena por aqui ainda.</Text>
+          ) : (
+            <View style={{ gap: Theme.spacing.lg }}>
+              {arenas.slice(0, 3).map((a) => (
+                <ArenaCard key={a.id} arena={a} onPress={() => router.push(`/arena/${a.id}`)} />
+              ))}
+            </View>
+          )}
+        </View>
+      </ScrollView>
+    </View>
   );
 }
 
-const s = StyleSheet.create({
-  wrap: { flex: 1, backgroundColor: Theme.colors.background },
+const styles = (c: Colors) => StyleSheet.create({
+  wrap: { flex: 1, backgroundColor: c.background },
+  content: {
+    maxWidth: 520,
+    width: '100%',
+    alignSelf: 'center',
+    paddingTop: Theme.spacing.stack,
+    paddingBottom: Theme.spacing.section,
+  },
 
-  location: { flexDirection: 'row', alignItems: 'center' },
-  locationTxt: { color: Theme.colors.textMuted, fontSize: 15, flexShrink: 1, marginLeft: 4 },
+  notice: {
+    marginHorizontal: Theme.spacing.margin,
+    marginBottom: Theme.spacing.stack,
+    padding: Theme.spacing.stack,
+    borderRadius: Theme.radius.md,
+    borderWidth: 1,
+  },
+  noticeOk: { backgroundColor: c.primaryDim, borderColor: c.primary },
+  noticeError: { backgroundColor: c.dangerDim, borderColor: c.danger },
+  noticeTxt: { ...Theme.typography.caption },
 
-  headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: Theme.spacing.md, paddingTop: Theme.spacing.xl, paddingBottom: Theme.spacing.sm },
-  headerLogoWrap: { width: 44, height: 44, borderRadius: Theme.radius.full, alignItems: 'center', justifyContent: 'center', overflow: 'hidden', backgroundColor: Theme.colors.surface, borderWidth: 1, borderColor: Theme.colors.border },
-  headerLogo: { width: 32, height: 32 },
-
-  bellBtn: { padding: 8, position: 'relative' },
-  bellBadge: { position: 'absolute', top: 6, right: 8, width: 10, height: 10, borderRadius: 5, backgroundColor: Theme.colors.danger, borderWidth: 2, borderColor: Theme.colors.background },
+  greeting: { paddingHorizontal: Theme.spacing.margin, marginBottom: Theme.spacing.lg },
+  hello: { ...Theme.typography.h1, color: c.text },
+  location: { flexDirection: 'row', alignItems: 'center', gap: Theme.spacing.xs, marginTop: Theme.spacing.xs },
+  locationTxt: { ...Theme.typography.body, color: c.textMuted, flexShrink: 1 },
 
   banner: {
-    borderRadius: Theme.radius.md,
+    borderRadius: Theme.radius.lg,
     overflow: 'hidden',
-    backgroundColor: Theme.colors.surfaceHighlight,
+    backgroundColor: c.surfaceHigh,
     ...Theme.shadow.raised,
   },
   // maxWidth vem de cada banner (BANNERS[].textWidth) — ver comentário lá.
   bannerContent: { flex: 1, justifyContent: 'center', paddingHorizontal: Theme.spacing.md, paddingVertical: Theme.spacing.sm },
-  bannerEyebrow: {
-    ...Theme.typography.small,
-    color: Theme.colors.onPhoto,
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
-    fontSize: 10.5,
-  },
-  bannerPrefix: {
-    ...Theme.typography.small,
-    color: Theme.colors.onPhotoMuted,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    fontSize: 10.5,
-    marginTop: 6,
-  },
+  bannerEyebrow: { ...Theme.typography.overline, color: c.onPhoto, textTransform: 'uppercase', fontSize: 11 },
+  bannerPrefix: { ...Theme.typography.overline, color: c.onPhotoMuted, textTransform: 'uppercase', fontSize: 11, marginTop: 6 },
   bannerHighlight: {
     fontFamily: Theme.fonts.display,
-    color: Theme.colors.onPhoto,
-    fontSize: 27,
-    lineHeight: 32,
-    letterSpacing: -0.8,
+    color: c.onPhoto,
+    fontSize: 28,
+    lineHeight: 34,
+    letterSpacing: -1.1,
     fontVariant: ['tabular-nums'],
   },
-  bannerSub: { ...Theme.typography.small, color: Theme.colors.onPhotoMuted, fontSize: 11.5, lineHeight: 15, marginTop: 3 },
+  bannerSub: { ...Theme.typography.small, color: c.onPhotoMuted, lineHeight: 16, marginTop: 3 },
   bannerCta: {
     flexDirection: 'row', alignItems: 'center', gap: 2, alignSelf: 'flex-start',
-    marginTop: Theme.spacing.sm, paddingVertical: 6, paddingHorizontal: 12,
-    backgroundColor: Theme.colors.primary, borderRadius: Theme.radius.full,
+    marginTop: Theme.spacing.stack, height: 34, paddingHorizontal: Theme.spacing.stack,
+    backgroundColor: c.accent, borderRadius: Theme.radius.full,
   },
-  bannerCtaTxt: { ...Theme.typography.small, color: Theme.colors.text, fontSize: 12, fontFamily: Theme.fonts.bodySemibold },
+  bannerCtaTxt: { ...Theme.typography.small, fontFamily: Theme.fonts.bodyBold, color: c.onAccent },
 
-  dots: { flexDirection: 'row', justifyContent: 'center', gap: 5, marginTop: Theme.spacing.sm },
-  dot: { width: 5, height: 5, borderRadius: Theme.radius.full, backgroundColor: Theme.colors.border },
-  dotActive: { width: 14, backgroundColor: Theme.colors.primary },
+  dots: { flexDirection: 'row', justifyContent: 'center', gap: 5, marginTop: Theme.spacing.stack },
+  dot: { width: 5, height: 5, borderRadius: Theme.radius.full, backgroundColor: c.border },
+  dotActive: { width: 16, backgroundColor: c.primary },
 
-  sectionTitle: { color: Theme.colors.text, fontSize: 18, fontWeight: '800', letterSpacing: -0.2, paddingHorizontal: Theme.spacing.md, marginTop: Theme.spacing.xxl, marginBottom: Theme.spacing.md },
-  emptyMatches: { color: Theme.colors.textMuted, fontSize: 15, paddingHorizontal: Theme.spacing.md },
+  section: { paddingHorizontal: Theme.spacing.margin, marginTop: Theme.spacing.section },
+  // A trilha horizontal sangra até a borda da tela; só o cabeçalho tem margem.
+  sectionNoPad: { marginTop: Theme.spacing.section },
+  empty: { ...Theme.typography.body, color: c.textMuted },
 
-  matchCard: { width: 240, flexDirection: 'row', gap: 10 },
-  matchBar: { width: 3, borderRadius: 2, backgroundColor: Theme.colors.primary },
-  matchArena: { color: Theme.colors.text, fontWeight: '700', fontSize: 15 },
-  matchInfo: { color: Theme.colors.textMuted, fontSize: 12.5, marginTop: 3, textTransform: 'capitalize' },
-  matchSpots: { color: Theme.colors.primary, fontWeight: '700', fontSize: 12.5, marginTop: 10 },
-  matchPriceRow: { marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: Theme.colors.border },
-  matchPrice: { ...Theme.typography.price, color: Theme.colors.text, fontSize: 16 },
-  matchPriceUnit: { ...Theme.typography.caption, color: Theme.colors.textMuted, fontSize: 12 },
+  favCount: {
+    flexDirection: 'row', alignItems: 'center', gap: Theme.spacing.xs,
+    height: 28, paddingHorizontal: Theme.spacing.sm,
+    borderRadius: Theme.radius.full, backgroundColor: c.primaryDim,
+  },
+  favCountTxt: { ...Theme.typography.small, fontFamily: Theme.fonts.bodyBold, color: c.primary },
 
-  arenaRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10, borderTopWidth: 1, borderTopColor: Theme.colors.border },
-  arenaPh: { width: 52, height: 52, borderRadius: Theme.radius.sm, backgroundColor: Theme.colors.surfaceHighlight },
-  arenaName: { color: Theme.colors.text, fontWeight: '700', fontSize: 14.5 },
-  arenaSub: { color: Theme.colors.textMuted, fontSize: 12.5, marginTop: 2, textTransform: 'capitalize' },
-  arenaRating: { flexDirection: 'row', alignItems: 'center', gap: 3 },
-  arenaRatingTxt: { color: Theme.colors.text, fontWeight: '700', fontSize: 12.5 },
+  mapBtn: {
+    width: 44, height: 44, borderRadius: Theme.radius.full,
+    alignItems: 'center', justifyContent: 'center',
+    backgroundColor: c.surfaceGray,
+  },
 });

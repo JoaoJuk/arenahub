@@ -1,95 +1,97 @@
 import { useEffect, useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Animated } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { 
-  ChevronRight, ChevronDown, User as UserIcon, CreditCard, 
-  Settings, History, LogOut, Bell, FileText, Lock, Gift, MapPin, Search
+import {
+  ChevronRight, ChevronDown, User as UserIcon, CreditCard,
+  Settings, History, LogOut, Bell, Gift, Zap,
 } from 'lucide-react-native';
 import { api, setToken } from '@/api';
-import { Theme } from '@/theme';
+import { Theme, type Colors } from '@/theme';
+import { useColors, useStyles } from '@/theme-context';
+import { Avatar } from '@/components/Avatar';
+import { Button } from '@/components/Button';
 import { Skeleton } from '@/components/Skeleton';
 
-// --- COMPONENTES DA TELA ---
+type RowProps = {
+  icon: any;
+  title: string;
+  onPress?: () => void;
+  right?: React.ReactNode;
+  last?: boolean;
+};
 
-function Avatar({ name }: { name: string }) {
-  const initial = name ? name.charAt(0).toUpperCase() : '?';
+function Row({ icon: Icon, title, onPress, right, last }: RowProps) {
+  const c = useColors();
+  const s = useStyles(styles);
   return (
-    <View style={s.avatarBox}>
-      <Text style={s.avatarTxt}>{initial}</Text>
-    </View>
-  );
-}
-
-function SectionItem({ icon: Icon, title, subtitle, onPress, rightContent }: any) {
-  return (
-    <TouchableOpacity style={s.itemRow} activeOpacity={0.7} onPress={onPress}>
-      <View style={s.itemIconWrap}>
-        <Icon size={22} color={Theme.colors.text} />
-      </View>
-      <View style={s.itemTexts}>
-        <Text style={s.itemTitle}>{title}</Text>
-        {!!subtitle && <Text style={s.itemSub}>{subtitle}</Text>}
-      </View>
-      {rightContent || <ChevronRight size={18} color={Theme.colors.textMuted} />}
+    <TouchableOpacity
+      style={[s.row, !last && s.rowDivider]}
+      activeOpacity={0.7}
+      onPress={onPress}
+      accessibilityRole="button"
+    >
+      <Icon size={20} color={c.text} />
+      <Text style={s.rowTitle}>{title}</Text>
+      {right ?? <ChevronRight size={18} color={c.textDim} />}
     </TouchableOpacity>
   );
 }
 
-function Accordion({ icon: Icon, title, subtitle, children, badge }: any) {
-  const [expanded, setExpanded] = useState(false);
+type AccordionProps = {
+  icon: any;
+  title: string;
+  open: boolean;
+  onToggle: () => void;
+  children: React.ReactNode;
+  last?: boolean;
+};
 
+function Accordion({ icon: Icon, title, open, onToggle, children, last }: AccordionProps) {
+  const c = useColors();
+  const s = useStyles(styles);
   return (
-    <View style={s.accordionWrap}>
-      <TouchableOpacity 
-        style={s.accordionHeader} 
-        activeOpacity={0.7} 
-        onPress={() => setExpanded(!expanded)}
+    <View>
+      <TouchableOpacity
+        style={[s.row, !last && !open && s.rowDivider]}
+        activeOpacity={0.7}
+        onPress={onToggle}
+        accessibilityRole="button"
+        accessibilityState={{ expanded: open }}
       >
-        <View style={s.itemIconWrap}>
-          <Icon size={22} color={Theme.colors.text} />
-        </View>
-        <View style={s.itemTexts}>
-          <Text style={s.itemTitle}>{title}</Text>
-          {!!subtitle && !expanded && <Text style={s.itemSub}>{subtitle}</Text>}
-        </View>
-        
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-          {!!badge && !expanded && (
-            <View style={s.badge}>
-              <Text style={s.badgeTxt}>{badge}</Text>
-            </View>
-          )}
-          {expanded ? <ChevronDown size={18} color={Theme.colors.textMuted} /> : <ChevronRight size={18} color={Theme.colors.textMuted} />}
-        </View>
+        <Icon size={20} color={c.text} />
+        <Text style={s.rowTitle}>{title}</Text>
+        {open
+          ? <ChevronDown size={18} color={c.textDim} />
+          : <ChevronRight size={18} color={c.textDim} />}
       </TouchableOpacity>
-      
-      {expanded && (
-        <View style={s.accordionBody}>
-          {children}
-        </View>
-      )}
+      {open && <View style={s.accordionBody}>{children}</View>}
     </View>
   );
 }
 
-function SubItem({ title, onPress, isDanger }: any) {
+function SubItem({ title, onPress }: { title: string; onPress?: () => void }) {
+  const c = useColors();
+  const s = useStyles(styles);
   return (
-    <TouchableOpacity style={s.subItemRow} activeOpacity={0.7} onPress={onPress}>
-      <Text style={[s.subItemTitle, isDanger && { color: Theme.colors.danger }]}>{title}</Text>
-      {isDanger ? <LogOut size={16} color={Theme.colors.danger} /> : <ChevronRight size={16} color={Theme.colors.border} />}
+    <TouchableOpacity style={s.subItem} activeOpacity={0.7} onPress={onPress} accessibilityRole="button">
+      <Text style={s.subItemTxt}>{title}</Text>
+      <ChevronRight size={16} color={c.textDim} />
     </TouchableOpacity>
   );
 }
-
-// --- TELA PRINCIPAL ---
 
 export default function Profile() {
+  const c = useColors();
+  const s = useStyles(styles);
   const [me, setMe] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [open, setOpen] = useState<string | null>(null);
   const router = useRouter();
+  const insets = useSafeAreaInsets();
 
-  useEffect(() => { 
-    api.me().then(setMe).catch(() => {}).finally(() => setLoading(false)); 
+  useEffect(() => {
+    api.me().then(setMe).catch(() => {}).finally(() => setLoading(false));
   }, []);
 
   const logout = async () => {
@@ -97,138 +99,185 @@ export default function Profile() {
     router.replace('/login');
   };
 
-  if (loading) {
-    return (
-      <View style={s.wrap}>
-        <View style={s.header}>
-          <Skeleton width={64} height={64} borderRadius={32} />
-          <View style={{ marginLeft: 16, gap: 8 }}>
-            <Skeleton width={120} height={24} />
-            <Skeleton width={160} height={16} />
-          </View>
-        </View>
-        <Skeleton width="100%" height={80} style={{ marginTop: 16, borderRadius: 12 }} />
-        <Skeleton width="100%" height={200} style={{ marginTop: 16, borderRadius: 12 }} />
-      </View>
-    );
-  }
+  const toggle = (key: string) => setOpen((k) => (k === key ? null : key));
 
   return (
-    <ScrollView style={s.wrap} contentContainerStyle={{ paddingBottom: 40 }}>
-      
-      {/* 1. Header (Avatar + Nome) */}
-      <View style={s.header}>
-        <Avatar name={me?.name || 'Visitante'} />
-        <View style={s.headerInfo}>
-          <Text style={s.name}>{me?.name || 'Visitante'}</Text>
-          <TouchableOpacity style={s.clubeBtn} activeOpacity={0.7}>
-            <Text style={s.clubeTxt}>Jogador Pro — 2 meses grátis!</Text>
-            <ChevronRight size={14} color={Theme.colors.text} />
+    <ScrollView
+      style={s.wrap}
+      contentContainerStyle={[s.content, { paddingTop: insets.top + Theme.spacing.stack, paddingBottom: insets.bottom + Theme.spacing.section }]}
+    >
+      <View style={s.topBar}>
+        <Text style={s.wordmark}>Liggo</Text>
+        <TouchableOpacity
+          onPress={() => router.push('/settings')}
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          accessibilityRole="button"
+          accessibilityLabel="Configurações"
+        >
+          <Settings size={22} color={c.primary} />
+        </TouchableOpacity>
+      </View>
+
+      {loading ? (
+        <View style={{ gap: Theme.spacing.lg, alignItems: 'center', marginTop: Theme.spacing.lg }}>
+          <Skeleton width={96} height={96} borderRadius={Theme.radius.full} />
+          <Skeleton width={160} height={28} />
+          <Skeleton width="100%" height={104} borderRadius={Theme.radius.lg} />
+          <Skeleton width="100%" height={168} borderRadius={Theme.radius.lg} />
+        </View>
+      ) : (
+        <>
+          {/* 1. Identidade */}
+          <View style={s.identity}>
+            <Avatar name={me?.name || 'Visitante'} size={96} />
+            <Text style={s.name} numberOfLines={1}>{me?.name || 'Visitante'}</Text>
+            {!!me?.username && <Text style={s.username}>@{me.username}</Text>}
+          </View>
+
+          {/* 2. Card "Pro" — a única superfície preta da tela */}
+          <TouchableOpacity style={s.proCard} activeOpacity={0.9} accessibilityRole="button">
+            <View style={{ flex: 1 }}>
+              <Text style={s.proTitle}>Jogador Pro</Text>
+              <Text style={s.proSub}>Desbloqueie estatísticas e reservas prioritárias.</Text>
+            </View>
+            <Zap size={28} color={c.accent} fill={c.accent} />
           </TouchableOpacity>
-          {me?.username && <Text style={s.username}>@{me.username}</Text>}
-        </View>
-      </View>
 
-      <View style={s.divider} />
+          {/* 3. Atalhos */}
+          <View style={s.group}>
+            <Row icon={CreditCard} title="Pagamentos" onPress={() => {}} />
+            <Row
+              icon={Gift}
+              title="Convide amigos"
+              onPress={() => {}}
+              right={
+                <View style={s.promoBadge}>
+                  <Text style={s.promoBadgeTxt}>PROMO</Text>
+                </View>
+              }
+            />
+            <Row
+              icon={Bell}
+              title="Notificações"
+              onPress={() => {}}
+              last
+              right={<View style={s.countBadge}><Text style={s.countBadgeTxt}>3</Text></View>}
+            />
+          </View>
 
-      {/* 2. Menu Top-Level (Pagamentos) */}
-      <SectionItem 
-        icon={CreditCard} 
-        title="Pagamentos" 
-        subtitle="Gerencie suas formas de pagamento e recibos"
-        onPress={() => {}} 
-      />
+          {/* 4. Seções expansíveis */}
+          <View style={s.group}>
+            <Accordion icon={History} title="Minhas partidas" open={open === 'matches'} onToggle={() => toggle('matches')}>
+              <SubItem title="Jogos concluídos" />
+              <SubItem title="Reservas ativas" />
+              <SubItem title="Estatísticas do jogador" />
+            </Accordion>
 
-      {/* Banner Promocional no meio do menu (estilo iFood) */}
-      <View style={s.promoBanner}>
-        <View style={s.promoIconBox}>
-          <Gift size={24} color="#FFF" />
-        </View>
-        <View style={{ flex: 1 }}>
-          <Text style={s.promoTitle}>Convide um amigo e ganhe R$ 20</Text>
-          <Text style={s.promoSub}>Acumule saldo a cada amigo que jogar no app!</Text>
-        </View>
-        <ChevronRight size={18} color={Theme.colors.textMuted} />
-      </View>
+            <Accordion icon={UserIcon} title="Conta" open={open === 'account'} onToggle={() => toggle('account')}>
+              <SubItem title="Dados da conta" />
+              <SubItem title="Meu @username" />
+              <SubItem title="Alterar senha" />
+              <SubItem title="Endereços" />
+            </Accordion>
 
-      <View style={s.dividerThin} />
+            <Accordion icon={Settings} title="Configurações" open={open === 'config'} onToggle={() => toggle('config')} last>
+              <SubItem title="Aparência (tema claro ou escuro)" onPress={() => router.push('/settings')} />
+              <SubItem title="Gerenciar notificações" />
+              <SubItem title="Privacidade" />
+              <SubItem title="Termos de uso" />
+            </Accordion>
+          </View>
 
-      {/* 3. Notificações */}
-      <SectionItem 
-        icon={Bell} 
-        title="Notificações" 
-        rightContent={<View style={s.badge}><Text style={s.badgeTxt}>3</Text></View>}
-        onPress={() => {}} 
-      />
+          <Button
+            title="Sair"
+            variant="danger"
+            size="lg"
+            fullWidth
+            icon={<LogOut />}
+            onPress={logout}
+            style={{ marginTop: Theme.spacing.lg }}
+          />
 
-      <View style={s.dividerThin} />
-
-      {/* 4. Sanfonas (Accordions) */}
-      <Accordion icon={History} title="Minhas Partidas e Estatísticas" subtitle="Histórico, placares e arenas visitadas">
-        <SubItem title="Jogos concluídos" onPress={() => {}} />
-        <SubItem title="Reservas ativas" onPress={() => {}} />
-        <SubItem title="Estatísticas do Jogador" onPress={() => {}} />
-      </Accordion>
-
-      <Accordion icon={UserIcon} title="Conta" subtitle="Dados pessoais, senha e endereços">
-        <SubItem title="Dados da conta" onPress={() => {}} />
-        <SubItem title="Meu @username" onPress={() => {}} />
-        <SubItem title="Alterar senha" onPress={() => {}} />
-        <SubItem title="Endereços" onPress={() => {}} />
-      </Accordion>
-
-      <Accordion icon={Settings} title="Configurações">
-        <SubItem title="Gerenciar notificações" onPress={() => {}} />
-        <SubItem title="Privacidade" onPress={() => {}} />
-        <SubItem title="Termos de uso" onPress={() => {}} />
-        <SubItem title="Sair da conta" onPress={logout} isDanger />
-      </Accordion>
-
-      <Text style={s.version}>Liggo v1.2.0</Text>
-
+          <Text style={s.version}>Liggo v1.2.0</Text>
+        </>
+      )}
     </ScrollView>
   );
 }
 
-const s = StyleSheet.create({
-  wrap: { flex: 1, backgroundColor: Theme.colors.background },
-  
-  // Header
-  header: { flexDirection: 'row', alignItems: 'center', padding: 20, paddingTop: 32 },
-  avatarBox: { width: 64, height: 64, borderRadius: 32, backgroundColor: Theme.colors.primaryDim, alignItems: 'center', justifyContent: 'center' },
-  avatarTxt: { fontSize: 28, color: Theme.colors.text, fontWeight: '800' },
-  headerInfo: { marginLeft: 16, flex: 1, justifyContent: 'center' },
-  name: { fontSize: 22, color: Theme.colors.text, fontWeight: '800' },
-  username: { fontSize: 13, color: Theme.colors.textMuted, marginTop: 2 },
-  clubeBtn: { flexDirection: 'row', alignItems: 'center', marginTop: 4, gap: 4, backgroundColor: Theme.colors.surfaceHighlight, alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 4, borderRadius: Theme.radius.full },
-  clubeTxt: { fontSize: 12.5, color: Theme.colors.text, fontWeight: '700' },
+const styles = (c: Colors) => StyleSheet.create({
+  wrap: { flex: 1, backgroundColor: c.background },
+  content: {
+    maxWidth: 520,
+    width: '100%',
+    alignSelf: 'center',
+    paddingHorizontal: Theme.spacing.margin,
+  },
 
-  divider: { height: 8, backgroundColor: Theme.colors.surface, borderTopWidth: 1, borderBottomWidth: 1, borderColor: Theme.colors.border, marginVertical: 12 },
-  dividerThin: { height: 1, backgroundColor: Theme.colors.border, marginHorizontal: 20 },
+  topBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', height: 44 },
+  wordmark: { fontFamily: Theme.fonts.display, fontSize: 22, color: c.primary },
 
-  // Items
-  itemRow: { flexDirection: 'row', alignItems: 'center', padding: 20 },
-  itemIconWrap: { width: 32, alignItems: 'flex-start' },
-  itemTexts: { flex: 1, paddingRight: 16 },
-  itemTitle: { fontSize: 16, color: Theme.colors.text, fontWeight: '600' },
-  itemSub: { fontSize: 13, color: Theme.colors.textMuted, marginTop: 4, lineHeight: 18 },
+  identity: { alignItems: 'center', gap: Theme.spacing.sm, marginTop: Theme.spacing.md, marginBottom: Theme.spacing.lg },
+  name: { ...Theme.typography.h1, color: c.text, marginTop: Theme.spacing.sm },
+  username: { ...Theme.typography.caption, color: c.textMuted },
 
-  // Promo Banner
-  promoBanner: { flexDirection: 'row', alignItems: 'center', backgroundColor: Theme.colors.surface, marginHorizontal: 20, marginVertical: 12, padding: 16, borderRadius: Theme.radius.lg, borderWidth: 1, borderColor: Theme.colors.border, gap: 12 },
-  promoIconBox: { width: 44, height: 44, borderRadius: 22, backgroundColor: Theme.colors.primary, alignItems: 'center', justifyContent: 'center' },
-  promoTitle: { fontSize: 15, color: Theme.colors.text, fontWeight: '800' },
-  promoSub: { fontSize: 13, color: Theme.colors.textMuted, marginTop: 2, lineHeight: 18 },
+  proCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Theme.spacing.md,
+    padding: Theme.spacing.lg,
+    borderRadius: Theme.radius.lg,
+    // `contrast`, não `inverse`: no escuro este bloco sobe um degrau de superfície
+    // (zinc-800) em vez de virar branco — é o que a tela Perfil - Dark mostra.
+    backgroundColor: c.contrast,
+    ...Theme.shadow.raised,
+  },
+  proTitle: { ...Theme.typography.h3, color: c.onContrast },
+  proSub: { ...Theme.typography.caption, color: 'rgba(255,255,255,0.72)', marginTop: Theme.spacing.xs },
 
-  // Badge
-  badge: { backgroundColor: Theme.colors.danger, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 12 },
-  badgeTxt: { color: '#FFF', fontSize: 12, fontWeight: '800' },
+  group: {
+    marginTop: Theme.spacing.lg,
+    borderRadius: Theme.radius.lg,
+    backgroundColor: c.surfaceGray,
+    overflow: 'hidden',
+  },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Theme.spacing.md,
+    minHeight: 56,
+    paddingHorizontal: Theme.spacing.md,
+  },
+  rowDivider: { borderBottomWidth: 1, borderBottomColor: c.border },
+  rowTitle: { ...Theme.typography.bodySemibold, color: c.text, flex: 1 },
 
-  // Accordion
-  accordionWrap: { borderBottomWidth: 1, borderBottomColor: Theme.colors.border },
-  accordionHeader: { flexDirection: 'row', alignItems: 'center', padding: 20 },
-  accordionBody: { paddingLeft: 52, paddingRight: 20, paddingBottom: 12 },
-  subItemRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: Theme.colors.surface },
-  subItemTitle: { fontSize: 15, color: Theme.colors.text, fontWeight: '500' },
+  accordionBody: { paddingLeft: Theme.spacing.section, paddingRight: Theme.spacing.md, paddingBottom: Theme.spacing.sm },
+  subItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    minHeight: 48,
+  },
+  subItemTxt: { ...Theme.typography.caption, color: c.textMuted },
 
-  version: { textAlign: 'center', color: Theme.colors.textMuted, fontSize: 12, marginTop: 40 },
+  promoBadge: {
+    paddingHorizontal: Theme.spacing.sm,
+    height: 22,
+    justifyContent: 'center',
+    borderRadius: Theme.radius.full,
+    backgroundColor: c.accent,
+  },
+  promoBadgeTxt: { ...Theme.typography.overline, fontSize: 10, color: c.onAccent },
+  countBadge: {
+    minWidth: 22,
+    height: 22,
+    paddingHorizontal: Theme.spacing.xs,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: Theme.radius.full,
+    backgroundColor: c.danger,
+  },
+  countBadgeTxt: { ...Theme.typography.small, fontFamily: Theme.fonts.bodyBold, color: c.onInverse },
+
+  version: { ...Theme.typography.small, textAlign: 'center', color: c.textDim, marginTop: Theme.spacing.section },
 });

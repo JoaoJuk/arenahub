@@ -6,21 +6,26 @@ import Animated, {
   withSpring,
   withTiming,
 } from 'react-native-reanimated';
-import { Theme } from '../theme';
+import { Theme, type Colors } from '../theme';
+import { useColors, useStyles } from '../theme-context';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+
+type ButtonVariant = 'primary' | 'dark' | 'secondary' | 'outline' | 'ghost' | 'glass' | 'danger';
 
 type ButtonProps = {
   title: string;
   onPress?: () => void;
-  variant?: 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger';
+  variant?: ButtonVariant;
   size?: 'sm' | 'md' | 'lg';
   loading?: boolean;
   disabled?: boolean;
   fullWidth?: boolean;
   icon?: React.ReactNode;
+  iconRight?: React.ReactNode;
   style?: ViewStyle;
   textStyle?: TextStyle;
+  accessibilityLabel?: string;
 };
 
 export const Button: React.FC<ButtonProps> = ({
@@ -32,57 +37,62 @@ export const Button: React.FC<ButtonProps> = ({
   disabled = false,
   fullWidth = false,
   icon,
+  iconRight,
   style,
   textStyle,
+  accessibilityLabel,
 }) => {
+  const c = useColors();
+  const s = useStyles(styles);
   const scale = useSharedValue(1);
-  const opacity = useSharedValue(1);
+  // Brilho neon do press (DESIGN.md §5) — só o botão de ação recebe.
+  const glow = useSharedValue(0);
+  const glows = variant === 'primary' || variant === 'dark';
 
   const handlePressIn = () => {
     scale.value = withSpring(0.96, Theme.motion.springPress);
-    opacity.value = withTiming(0.8, { duration: Theme.motion.fast });
+    if (glows) glow.value = withTiming(1, { duration: Theme.motion.fast });
   };
 
   const handlePressOut = () => {
     scale.value = withSpring(1, Theme.motion.springPress);
-    opacity.value = withTiming(1, { duration: Theme.motion.fast });
+    if (glows) glow.value = withTiming(0, { duration: Theme.motion.base });
   };
 
-  const animatedStyle = useAnimatedStyle(() => {
-    return {
-      transform: [{ scale: scale.value }],
-      opacity: disabled ? 0.5 : opacity.value,
-    };
-  });
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+    opacity: disabled ? 0.4 : 1,
+    shadowOpacity: glow.value * Theme.shadow.glow.shadowOpacity,
+    shadowRadius: Theme.shadow.glow.shadowRadius,
+  }));
 
   const getVariantStyles = () => {
     switch (variant) {
       case 'primary':
-        return {
-          // Texto escuro sobre o verde — branco/claro não fecha contraste AA (ver DESIGN.md).
-          container: { backgroundColor: Theme.colors.primary, borderWidth: 1, borderColor: Theme.colors.primary },
-          text: { color: Theme.colors.text },
-        };
+        // Neon como preenchimento + texto quase preto. Branco sobre neon reprova
+        // contraste; ver DESIGN.md §2.
+        return { container: { backgroundColor: c.accent }, text: { color: c.onAccent } };
+      case 'dark':
+        // Bloco de alto contraste — no escuro ele sobe um degrau de superfície
+        // em vez de virar branco (senão competiria com o CTA neon).
+        return { container: { backgroundColor: c.contrast }, text: { color: c.onContrast } };
       case 'secondary':
-        return {
-          container: { backgroundColor: Theme.colors.surfaceHighlight, borderWidth: 1, borderColor: Theme.colors.surfaceHighlight },
-          text: { color: Theme.colors.text },
-        };
+        return { container: { backgroundColor: c.surfaceGray }, text: { color: c.text } };
       case 'outline':
         return {
-          container: { backgroundColor: 'transparent', borderWidth: 1, borderColor: Theme.colors.border },
-          text: { color: Theme.colors.text },
+          container: { backgroundColor: 'transparent', borderWidth: 1, borderColor: c.border },
+          text: { color: c.text },
         };
       case 'ghost':
-        return {
-          // primaryHover (mais escuro) em vez de primary puro — melhora contraste de texto sobre fundo claro.
-          container: { backgroundColor: 'transparent', borderWidth: 0, borderColor: 'transparent' },
-          text: { color: Theme.colors.primaryHover },
-        };
+        // Verde de TEXTO: #106E00 no claro, o próprio neon no escuro.
+        return { container: { backgroundColor: 'transparent' }, text: { color: c.primary } };
+      case 'glass':
+        // Sobre foto: branco translúcido. `onPhoto` garante leitura sobre o scrim.
+        return { container: { backgroundColor: c.glass }, text: { color: c.onPhoto } };
       case 'danger':
         return {
-          container: { backgroundColor: Theme.colors.dangerDim, borderWidth: 1, borderColor: 'transparent' },
-          text: { color: Theme.colors.danger },
+          container: { backgroundColor: 'transparent', borderWidth: 1, borderColor: c.danger },
+          text: { color: c.danger },
         };
     }
   };
@@ -90,16 +100,17 @@ export const Button: React.FC<ButtonProps> = ({
   const getSizeStyles = () => {
     switch (size) {
       case 'sm':
-        return { container: { paddingVertical: 8, paddingHorizontal: 16 }, text: Theme.typography.small };
+        return { container: { height: 40, paddingHorizontal: Theme.spacing.md }, text: Theme.typography.small };
       case 'md':
-        return { container: { paddingVertical: 14, paddingHorizontal: 24 }, text: Theme.typography.bodySemibold };
+        return { container: { height: 48, paddingHorizontal: Theme.spacing.lg }, text: Theme.typography.label };
       case 'lg':
-        return { container: { paddingVertical: 18, paddingHorizontal: 32 }, text: Theme.typography.h3 };
+        return { container: { height: 56, paddingHorizontal: Theme.spacing.xl }, text: Theme.typography.bodySemibold };
     }
   };
 
   const vStyles = getVariantStyles();
   const sStyles = getSizeStyles();
+  const contentColor = vStyles.text.color;
 
   return (
     <AnimatedPressable
@@ -107,33 +118,46 @@ export const Button: React.FC<ButtonProps> = ({
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
       disabled={disabled || loading}
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel ?? title}
+      accessibilityState={{ disabled: disabled || loading }}
       style={[
-        styles.base,
+        s.base,
         vStyles.container,
         sStyles.container,
-        fullWidth && styles.fullWidth,
+        fullWidth && s.fullWidth,
         style,
         animatedStyle,
       ]}
     >
       {loading ? (
-        <ActivityIndicator color={vStyles.text.color} size="small" />
+        <ActivityIndicator color={contentColor} size="small" />
       ) : (
         <>
-          {icon && React.cloneElement(icon as any, { color: vStyles.text.color, size: 20, style: { marginRight: 8 } })}
-          <Text style={[vStyles.text, sStyles.text, textStyle]}>{title}</Text>
+          {icon &&
+            React.cloneElement(icon as any, { color: contentColor, size: 20, style: { marginRight: Theme.spacing.sm } })}
+          <Text style={[vStyles.text, sStyles.text, textStyle]} numberOfLines={1}>
+            {title}
+          </Text>
+          {iconRight &&
+            React.cloneElement(iconRight as any, { color: contentColor, size: 20, style: { marginLeft: Theme.spacing.sm } })}
         </>
       )}
     </AnimatedPressable>
   );
 };
 
-const styles = StyleSheet.create({
+const styles = (c: Colors) => StyleSheet.create({
   base: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: Theme.radius.md,
+    // Pílula é a forma padrão de botão no Liggo Kinetic.
+    borderRadius: Theme.radius.full,
+    // shadowColor precisa ser estático; a opacidade é que é animada no press.
+    shadowColor: Theme.shadow.glow.shadowColor,
+    shadowOffset: Theme.shadow.glow.shadowOffset,
+    shadowOpacity: 0,
   },
   fullWidth: {
     width: '100%',
