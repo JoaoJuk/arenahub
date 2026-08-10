@@ -11,6 +11,16 @@ export function shareAt(totalAmount, splitCount, index) {
   return base + (index < remainder ? 1 : 0);
 }
 
+/**
+ * Cotas que de fato ocupam vaga.
+ *
+ * `requested` é um pedido esperando o organizador aceitar — não segura vaga nem
+ * entra no cálculo do valor. Toda contagem de "quantas cotas já existem" tem que
+ * passar por aqui, senão um pedido pendente rouba a vaga de quem foi aceito e
+ * ainda desloca o índice do `shareAt`, cobrando o centavo errado.
+ */
+export const heldShares = (shares) => shares.filter((s) => s.status !== 'requested');
+
 /** Confirma a reserva quando todas as cotas estão pagas ou comprometidas. */
 export async function maybeConfirm(bookingId) {
   const b = await prisma.booking.findUnique({ where: { id: bookingId }, include: { shares: true } });

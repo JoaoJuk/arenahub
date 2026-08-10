@@ -1,3 +1,4 @@
+import { randomBytes } from 'node:crypto';
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 
@@ -96,6 +97,53 @@ if (beira && demoUser && hasViews === 0) {
   for (const [rating, comment] of comments)
     await prisma.review.create({ data: { arenaId: beira.id, userId: demoUser.id, rating, comment } });
   console.log('📈 Dados de desempenho de exemplo criados (14 dias de visualizações, avaliações e histórico).');
+}
+
+// ---- Racha aberto de exemplo ------------------------------------------------
+// Fora do bloco acima de propósito: aquele só roda em banco novo, e este precisa
+// aparecer também em banco que já existe. Guardado pela própria existência de um
+// racha aberto, então rodar o seed de novo não duplica.
+{
+  const arena = await prisma.arena.findFirst({ where: { name: 'Arena Beira-Mar' }, include: { courts: true } });
+  const organizer = await prisma.user.findUnique({ where: { email: player.email } });
+  const court = arena?.courts?.[0];
+  const jaExiste = await prisma.booking.count({
+    where: { isPublic: true, paymentMode: 'split', status: 'pending' },
+  });
+
+  if (court && organizer && jaExiste === 0) {
+    const d = new Date(); d.setDate(d.getDate() + 3);
+    const total = court.pricePerHour * 2;
+    const splitCount = 6;
+    await prisma.booking.create({
+      data: {
+        courtId: court.id,
+        userId: organizer.id,
+        date: d.toISOString().slice(0, 10),
+        startTime: '20:00',
+        endTime: '22:00',
+        totalAmount: total,
+        paymentMode: 'split',
+        splitCount,
+        isPublic: true,
+        spotsNeeded: splitCount,
+        status: 'pending',
+        shareToken: randomBytes(9).toString('base64url'),
+        // O organizador já entra com a cota dele paga — sobram 5 vagas.
+        shares: {
+          create: [{
+            userId: organizer.id,
+            name: organizer.name,
+            phone: organizer.phone,
+            method: 'pix',
+            amount: Math.floor(total / splitCount) + (total % splitCount > 0 ? 1 : 0),
+            status: 'paid',
+          }],
+        },
+      },
+    });
+    console.log('⚽ Racha aberto de exemplo criado (Arena Beira-Mar, daqui a 3 dias, 5 vagas).');
+  }
 }
 
 console.log('✅ Seed concluído: 3 arenas, 7 quadras. Logins (senha 123456): demo@liggo.app (jogador) · arena@liggo.app (dono) · admin@liggo.app (admin)');

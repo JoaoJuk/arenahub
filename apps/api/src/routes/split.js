@@ -3,7 +3,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { prisma } from '../server.js';
 import { createCheckout } from '../services/mercadopago.js';
-import { maybeConfirm, shareAt } from '../services/booking.js';
+import { maybeConfirm, shareAt, heldShares } from '../services/booking.js';
 
 const webDir = path.join(path.dirname(fileURLToPath(import.meta.url)), '../../web');
 const brl = (c) => (c / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -26,7 +26,7 @@ export default async function splitRoutes(app) {
       .replaceAll('{{COURT}}', b.court.name)
       .replaceAll('{{DATE}}', b.date.split('-').reverse().join('/'))
       .replaceAll('{{TIME}}', `${b.startTime}–${b.endTime}`)
-      .replaceAll('{{SHARE_AMOUNT}}', brl(shareAt(b.totalAmount, b.splitCount, b.shares.length)))
+      .replaceAll('{{SHARE_AMOUNT}}', brl(shareAt(b.totalAmount, b.splitCount, heldShares(b.shares).length)))
       .replaceAll('{{TOTAL}}', brl(b.totalAmount));
     return reply.type('text/html').send(html);
   });
@@ -39,9 +39,10 @@ export default async function splitRoutes(app) {
       arena: b.court.arena.name, court: b.court.name, date: b.date,
       startTime: b.startTime, endTime: b.endTime, status: b.status,
       totalAmount: b.totalAmount, splitCount: b.splitCount,
-      shareAmount: shareAt(b.totalAmount, b.splitCount, b.shares.length),
-      shares: b.shares.map((s) => ({ name: s.name, method: s.method, status: s.status })),
-      remaining: b.splitCount - b.shares.length,
+      shareAmount: shareAt(b.totalAmount, b.splitCount, heldShares(b.shares).length),
+      // Pedidos ainda não aceitos pelo organizador não aparecem nem contam vaga.
+      shares: heldShares(b.shares).map((s) => ({ name: s.name, method: s.method, status: s.status })),
+      remaining: b.splitCount - heldShares(b.shares).length,
     };
   });
 
@@ -73,8 +74,9 @@ export default async function splitRoutes(app) {
         });
         if (!cur) throw new Error('NOT_FOUND');
         if (cur.status === 'cancelled') throw new Error('CANCELLED');
-        if (cur.shares.length >= cur.splitCount) throw new Error('FULL');
-        const amount = shareAt(cur.totalAmount, cur.splitCount, cur.shares.length);
+        const held = heldShares(cur.shares);
+        if (held.length >= cur.splitCount) throw new Error('FULL');
+        const amount = shareAt(cur.totalAmount, cur.splitCount, held.length);
         const created = await tx.splitShare.create({
           data: {
             bookingId: cur.id, name, phone, method, amount,
