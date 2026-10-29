@@ -6,59 +6,70 @@
 <title>Dividir reserva — Liggo</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
+  /* Espelha apps/mobile/src/theme.ts — o design system "Liggo Kinetic".
+     Se um token mudar lá, mude aqui também: esta página duplica a paleta à mão.
+     Os DOIS verdes: --green (#106e00) é o verde de TEXTO sobre fundo claro;
+     --neon (#39ff14) é o verde de PREENCHIMENTO, sempre com texto escuro em cima. */
   :root{
-    --bg:#fafafa; --card:#ffffff; --line:#e4e4e7;
-    --green:#00b341; --green-dim:rgba(0,179,65,0.12);
-    --txt:#18181b; --mut:#71717a;
-    --font-display:'Manrope',-apple-system,sans-serif;
+    --bg:#f9f9f9; --card:#ffffff; --gray:#f4f4f4; --line:#e5e5e5;
+    --green:#106e00; --green-dim:rgba(16,110,0,0.10);
+    --neon:#39ff14; --neon-dark:#2ed610; --on-neon:#1a1c1c;
+    --txt:#1a1c1c; --mut:#5e5e5e; --dim:#a0a0a0;
+    --font-display:'Inter',-apple-system,sans-serif;
     --font-body:'Inter',-apple-system,sans-serif;
-    --radius-card:14px; --radius-sm:10px; --radius-pill:999px;
+    --radius-card:24px; --radius-sm:16px; --radius-pill:999px;
+    --elev:0 10px 30px rgba(0,0,0,0.05);
   }
   *{box-sizing:border-box;margin:0}
   body{
     font-family:var(--font-body);background:var(--bg);color:var(--txt);
-    min-height:100vh;display:flex;justify-content:center;padding:28px 16px;
+    min-height:100vh;display:flex;justify-content:center;padding:28px 20px;
     -webkit-font-smoothing:antialiased;
   }
   .wrap{width:100%;max-width:420px}
-  .logo{font-family:var(--font-display);font-weight:800;font-size:20px;letter-spacing:-0.02em;margin-bottom:18px}
-  .logo span{color:var(--green)}
-  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius-card);padding:18px;margin-bottom:14px}
-  h1{font-family:var(--font-display);font-weight:800;font-size:17px;letter-spacing:-0.01em;margin-bottom:4px}
-  .mut{color:var(--mut);font-size:13.5px}
-  .price{font-family:var(--font-body);font-variant-numeric:tabular-nums;font-weight:700;font-size:30px;letter-spacing:-0.01em;margin:10px 0 2px}
-  label{display:block;font-size:12.5px;font-weight:600;color:var(--mut);margin:14px 0 6px}
+  .logo{font-family:var(--font-display);font-weight:800;font-size:26px;letter-spacing:-0.03em;margin-bottom:20px;color:var(--green)}
+  .logo span{color:var(--neon)}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius-card);padding:20px;margin-bottom:16px;box-shadow:var(--elev)}
+  h1{font-family:var(--font-display);font-weight:700;font-size:20px;letter-spacing:-0.01em;margin-bottom:4px}
+  .mut{color:var(--mut);font-size:14px}
+  .price{font-family:var(--font-body);font-variant-numeric:tabular-nums;font-weight:700;font-size:32px;letter-spacing:-0.01em;margin:10px 0 2px}
+  label{display:block;font-size:12px;font-weight:700;letter-spacing:0.075em;text-transform:uppercase;color:var(--mut);margin:18px 0 8px}
   input{
-    width:100%;padding:13px 14px;border-radius:var(--radius-sm);border:1px solid var(--line);
-    background:var(--bg);color:var(--txt);font-size:15px;font-family:var(--font-body);
+    width:100%;padding:15px 16px;border-radius:var(--radius-sm);border:2px solid transparent;
+    background:var(--gray);color:var(--txt);font-size:16px;font-family:var(--font-body);
   }
-  input::placeholder{color:var(--mut)}
+  input:focus{outline:0;border-color:var(--neon)}
+  input::placeholder{color:var(--dim)}
   .methods{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:6px}
   .methods button{
-    padding:11px 4px;border-radius:11px;border:1px solid var(--line);background:var(--card);
-    color:var(--txt);font-size:12.5px;font-weight:600;font-family:var(--font-body);cursor:pointer;
+    padding:14px 4px;border-radius:var(--radius-sm);border:2px solid transparent;background:var(--gray);
+    color:var(--txt);font-size:13px;font-weight:700;font-family:var(--font-body);cursor:pointer;
   }
-  .methods button.sel{border-color:var(--green);background:var(--green-dim)}
+  /* Selecionado troca o FUNDO (claro -> preto), não só a borda */
+  .methods button.sel{background:var(--txt);color:var(--neon);border-color:var(--neon)}
   .cta{
-    width:100%;margin-top:18px;padding:15px;border:0;border-radius:var(--radius-sm);
-    background:var(--green);color:var(--txt);font-size:15.5px;font-weight:700;
-    font-family:var(--font-body);cursor:pointer;
+    width:100%;margin-top:20px;min-height:56px;padding:16px;border:0;border-radius:var(--radius-pill);
+    background:var(--neon);color:var(--on-neon);font-size:16px;font-weight:700;
+    font-family:var(--font-body);cursor:pointer;transition:transform .12s,box-shadow .12s;
   }
-  .cta:disabled{opacity:.5}
-  .who{display:flex;justify-content:space-between;padding:9px 0;border-top:1px solid var(--line);font-size:14px}
+  .cta:active{transform:scale(.97);box-shadow:0 0 20px rgba(57,255,20,.5)}
+  .cta:disabled{opacity:.4}
+  .who{display:flex;justify-content:space-between;padding:12px 0;border-top:1px solid var(--line);font-size:14px}
   .who:first-child{border-top:0}
-  .ok{color:var(--green);font-weight:700;font-size:12.5px} .pend{color:var(--mut);font-size:12.5px}
+  .ok{color:var(--green);font-weight:700;font-size:13px} .pend{color:var(--mut);font-size:13px}
   .msg{margin-top:12px;font-size:14px;text-align:center}
-  .promo{border-color:var(--green);text-align:center;background:var(--green-dim)}
-  .promo h1{color:var(--txt);font-size:15px}
-  .promo .cta{margin-top:12px;padding:11px;background:transparent;border:1px solid var(--green);color:var(--green)}
+  /* Cartão-isca em preto, como o card "Pro" do perfil no app */
+  .promo{background:var(--txt);border-color:var(--txt);text-align:center}
+  .promo h1,.promo .mut{color:#fff}
+  .promo .mut{opacity:.7}
+  .promo .cta{margin-top:16px}
 </style>
 </head>
 <body>
 <div class="wrap">
-  <div class="logo">Lig<span>go</span></div>
+  <div class="logo">Liggo<span>.</span></div>
 
   <div class="card">
     <div class="mut">Você foi convidado para um jogo</div>

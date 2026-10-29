@@ -1,6 +1,48 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { NativeModules, Platform } from 'react-native';
+import Constants from 'expo-constants';
 
-const BASE = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3333';
+const API_PORT = 3333;
+
+/**
+ * Endereço da API.
+ *
+ * No celular, `localhost` é o próprio aparelho — apontar para lá dá
+ * "Network request failed" sem nunca chegar no seu PC. Como o bundle veio do
+ * Metro rodando na sua máquina, o host dele é exatamente o IP que o celular
+ * precisa usar para a API. Isso cobre celular na mesma rede e o emulador do
+ * Android (10.0.2.2) sem configuração manual.
+ *
+ * Com `--tunnel`, ou em produção, defina `EXPO_PUBLIC_API_URL` — o host do
+ * bundle ali não serve a API.
+ */
+function resolveBase(): string {
+  // 1. Configuração explícita sempre ganha.
+  if (process.env.EXPO_PUBLIC_API_URL) return process.env.EXPO_PUBLIC_API_URL;
+
+  const fromHost = (h?: string) => {
+    const host = h?.split(':')[0];
+    return host && host !== 'localhost' && host !== '127.0.0.1' ? `http://${host}:${API_PORT}` : null;
+  };
+
+  // 2. Via oficial do Expo: "192.168.0.10:8081".
+  const viaExpo = fromHost(Constants.expoConfig?.hostUri);
+  if (viaExpo) return viaExpo;
+
+  // 3. Reserva, caso o manifesto não traga hostUri: o host de quem serviu o bundle.
+  const scriptURL: string | undefined = (NativeModules as any)?.SourceCode?.scriptURL;
+  const viaBundle = fromHost(scriptURL?.match(/^http:\/\/([^/]+)/)?.[1]);
+  if (viaBundle) return viaBundle;
+
+  // 4. Web: a mesma máquina que serviu a página.
+  if (Platform.OS === 'web' && typeof window !== 'undefined' && window.location?.hostname) {
+    return `http://${window.location.hostname}:${API_PORT}`;
+  }
+
+  return `http://localhost:${API_PORT}`;
+}
+
+const BASE = resolveBase();
 let token: string | null = null;
 
 export async function loadToken() {
@@ -24,18 +66,32 @@ export const homeOf = (role: string | null) =>
 
 async function req(path: string, options: RequestInit = {}) {
   const hasBody = !!options.body;
-  const res = await fetch(`${BASE}${path}`, {
-    ...options,
-    headers: {
-      ...(hasBody ? { 'Content-Type': 'application/json' } : {}),
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...(options.headers || {}),
-    },
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${BASE}${path}`, {
+      ...options,
+      headers: {
+        ...(hasBody ? { 'Content-Type': 'application/json' } : {}),
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...(options.headers || {}),
+      },
+    });
+  } catch {
+    // "Network request failed" / "Failed to fetch" não dizem nada para quem está
+    // testando no celular. Aqui a mensagem já entrega o endereço tentado e as
+    // duas causas reais: servidor desligado ou aparelho em outra rede.
+    throw new Error(
+      `Não conectou na API (${BASE}). Confira se o servidor está rodando ` +
+      `(cd apps/api && npm run dev) e se o celular está no mesmo Wi-Fi do PC.`,
+    );
+  }
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data.error || `Erro ${res.status}`);
   return data;
 }
+
+/** Endereço em uso — útil para depurar conexão a partir de uma tela. */
+export const apiBaseUrl = () => BASE;
 
 export const api = {
   login: (email: string, password: string) =>
@@ -66,6 +122,13 @@ export const api = {
   acceptInvite: (shareId: string) => req(`/invites/${shareId}/accept`, { method: 'POST', body: '{}' }),
   declineInvite: (shareId: string) => req(`/invites/${shareId}/decline`, { method: 'POST', body: '{}' }),
   payMyShare: (bookingId: string) => req(`/bookings/${bookingId}/pay-share`, { method: 'POST', body: '{}' }),
+  /** Jogador pede para entrar num racha aberto — fica aguardando o organizador. */
+  requestToJoin: (bookingId: string) =>
+    req(`/bookings/${bookingId}/join-request`, { method: 'POST', body: '{}' }),
+  approveRequest: (bookingId: string, shareId: string) =>
+    req(`/bookings/${bookingId}/requests/${shareId}/approve`, { method: 'POST', body: '{}' }),
+  rejectRequest: (bookingId: string, shareId: string) =>
+    req(`/bookings/${bookingId}/requests/${shareId}/reject`, { method: 'POST', body: '{}' }),
   updatePublicMatch: (bookingId: string, body: object) =>
     req(`/bookings/${bookingId}/public`, { method: 'PATCH', body: JSON.stringify(body) }),
   // Dono da arena

@@ -1,63 +1,66 @@
 import React from 'react';
 import { View, StyleSheet, ViewStyle } from 'react-native';
-import { Theme } from '../theme';
+import { Theme, type Colors } from '../theme';
+import { useStyles } from '../theme-context';
 
 type CardProps = {
   children: React.ReactNode;
   style?: ViewStyle;
-  variant?: 'elevated' | 'outline' | 'filled';
+  /** `elevated` é o padrão do Liggo Kinetic: raio 24 + kinetic shadow. */
+  variant?: 'elevated' | 'outline' | 'filled' | 'gray' | 'dark';
   padding?: 'none' | 'sm' | 'md' | 'lg';
 };
 
 export const Card: React.FC<CardProps> = ({
   children,
   style,
-  variant = 'filled',
+  variant = 'elevated',
   padding = 'md',
 }) => {
-  const getVariantStyles = () => {
-    switch (variant) {
-      case 'filled':
-        return {
-          backgroundColor: Theme.colors.surface,
-          borderWidth: 1,
-          borderColor: Theme.colors.surfaceHighlight,
-        };
-      case 'outline':
-        return {
-          backgroundColor: 'transparent',
-          borderWidth: 1,
-          borderColor: Theme.colors.border,
-        };
-      case 'elevated':
-        return {
-          backgroundColor: Theme.colors.surface,
-          ...Theme.shadow.raised,
-          borderWidth: 1,
-          borderColor: Theme.colors.border,
-        };
-    }
-  };
+  const s = useStyles(styles);
 
-  const getPaddingStyles = () => {
-    switch (padding) {
-      case 'none': return { padding: 0 };
-      case 'sm': return { padding: Theme.spacing.sm };
-      case 'md': return { padding: Theme.spacing.md };
-      case 'lg': return { padding: Theme.spacing.lg };
-    }
-  };
+  const paddingStyle = {
+    none: { padding: 0 },
+    sm: { padding: Theme.spacing.stack },
+    md: { padding: Theme.spacing.md },
+    lg: { padding: Theme.spacing.lg },
+  }[padding];
 
   return (
-    <View style={[styles.base, getVariantStyles(), getPaddingStyles(), style]}>
+    <View style={[s.base, s[variant], paddingStyle, style]}>
       {children}
     </View>
   );
 };
 
-const styles = StyleSheet.create({
+const styles = (c: Colors) => StyleSheet.create({
   base: {
-    borderRadius: Theme.radius.md,
+    borderRadius: Theme.radius.lg,
     overflow: 'hidden',
+  },
+  elevated: {
+    backgroundColor: c.surface,
+    borderWidth: 1,
+    borderColor: c.border,
+    ...Theme.shadow.raised,
+  },
+  filled: {
+    backgroundColor: c.surface,
+    borderWidth: 1,
+    borderColor: c.border,
+  },
+  gray: {
+    backgroundColor: c.surfaceGray,
+    borderWidth: 0,
+  },
+  outline: {
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: c.border,
+  },
+  dark: {
+    backgroundColor: c.contrast,
+    borderWidth: 0,
+    ...Theme.shadow.raised,
   },
 });

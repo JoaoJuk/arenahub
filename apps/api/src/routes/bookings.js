@@ -2,7 +2,7 @@ import crypto from 'node:crypto';
 import { prisma } from '../server.js';
 import { hoursBetween } from '../services/availability.js';
 import { createCheckout } from '../services/mercadopago.js';
-import { shareAt } from '../services/booking.js';
+import { shareAt, heldShares, maybeConfirm } from '../services/booking.js';
 
 const shareUrlOf = (token) => `${process.env.BASE_URL || 'http://localhost:3333'}/s/${token}`;
 
@@ -81,19 +81,41 @@ export default async function bookingRoutes(app) {
   });
 
   app.get('/bookings/mine', { onRequest: [app.authenticate] }, async (req) => {
+    const me = req.user.sub;
     const bookings = await prisma.booking.findMany({
-      where: { userId: req.user.sub },
+      where: {
+        OR: [
+          { userId: me },
+          // Reservas em que entrei como cotista. `requested` fica de fora: o
+          // pedido só vira reserva minha depois que o organizador aceita.
+          { shares: { some: { userId: me, status: { in: ['pending', 'committed', 'paid'] } } } },
+        ],
+      },
       include: { court: { include: { arena: true } }, shares: true },
       orderBy: [{ date: 'desc' }, { startTime: 'desc' }],
     });
-    return bookings.map((b) => ({
-      ...b,
-      shareUrl: b.shareToken ? shareUrlOf(b.shareToken) : null,
-      paidShares: b.shares.filter((s) => s.status !== 'pending').length,
-    }));
+    return bookings.map((b) => {
+      const held = heldShares(b.shares);
+      const isOrganizer = b.userId === me;
+      return {
+        ...b,
+        // Só o organizador recebe o link de convite.
+        shareUrl: isOrganizer && b.shareToken ? shareUrlOf(b.shareToken) : null,
+        paidShares: held.filter((s) => s.status !== 'pending').length,
+        myRole: isOrganizer ? 'organizer' : 'participant',
+        // Aviso na lista: é onde o organizador descobre que tem gente pedindo
+        // para entrar (não existe notificação no app ainda).
+        pendingRequests: isOrganizer ? b.shares.filter((s) => s.status === 'requested').length : 0,
+      };
+    });
   });
 
   app.get('/bookings/open', async (req) => {
+    // Rota pública (o card aparece para quem nem entrou), mas se vier um token
+    // válido dá para dizer se VOCÊ já pediu para entrar neste racha.
+    let me = null;
+    try { await req.jwtVerify(); me = req.user.sub; } catch { /* visitante */ }
+
     const today = new Date().toISOString().slice(0, 10);
     const bookings = await prisma.booking.findMany({
       where: {
@@ -109,9 +131,11 @@ export default async function bookingRoutes(app) {
     });
 
     return bookings.map((b) => {
-      const paidShares = b.shares.filter((s) => s.status !== 'pending').length;
-      const totalCost = b.totalAmount;
-      const splitAmount = shareAt(totalCost, b.splitCount || 1, 0);
+      const held = heldShares(b.shares);
+      const taken = held.length;
+      const paidShares = held.filter((s) => s.status !== 'pending').length;
+      const splitAmount = shareAt(b.totalAmount, b.splitCount || 1, 0);
+      const mine = me ? b.shares.find((s) => s.userId === me) : null;
 
       return {
         id: b.id,
@@ -119,11 +143,19 @@ export default async function bookingRoutes(app) {
         sport: b.court.sport,
         date: b.date,
         startTime: b.startTime,
-        spotsLeft: Math.max(0, b.spotsNeeded - paidShares),
+        spotsLeft: Math.max(0, b.spotsNeeded - taken),
+        // O card de racha da home mostra "+N confirmados" ao lado das vagas —
+        // sem estes dois campos ele teria só metade da informação.
+        confirmed: paidShares,
+        spotsTotal: b.spotsNeeded,
         shareAmount: splitAmount,
         shareUrl: b.shareToken ? shareUrlOf(b.shareToken) : null,
+        // 'requested' | 'pending' | 'committed' | 'paid' | null — o card usa
+        // para saber se mostra "Pedir para entrar" ou "Pedido enviado".
+        myStatus: mine ? mine.status : null,
+        isOrganizer: me ? b.userId === me : false,
       };
-    }).filter(b => b.spotsLeft > 0);
+    }).filter((b) => b.spotsLeft > 0 || b.myStatus);
   });
 
   app.get('/bookings/:id', { onRequest: [app.authenticate] }, async (req, reply) => {
@@ -131,8 +163,22 @@ export default async function bookingRoutes(app) {
       where: { id: req.params.id },
       include: { court: { include: { arena: true } }, shares: true, payments: true },
     });
-    if (!b || b.userId !== req.user.sub) return reply.code(404).send({ error: 'Reserva não encontrada' });
-    return { ...b, shareUrl: b.shareToken ? shareUrlOf(b.shareToken) : null };
+    if (!b) return reply.code(404).send({ error: 'Reserva não encontrada' });
+
+    // Quem tem cota também abre a tela — senão o jogador aceito num racha não
+    // conseguiria nem ver a reserva, nem pagar a parte dele.
+    const me = req.user.sub;
+    const myShare = b.shares.find((s) => s.userId === me) || null;
+    const isOrganizer = b.userId === me;
+    if (!isOrganizer && !myShare) return reply.code(404).send({ error: 'Reserva não encontrada' });
+
+    return {
+      ...b,
+      // O link de convite é do organizador; participante não distribui vaga.
+      shareUrl: isOrganizer && b.shareToken ? shareUrlOf(b.shareToken) : null,
+      myRole: isOrganizer ? 'organizer' : 'participant',
+      myShare,
+    };
   });
 
   app.post('/bookings/:id/cancel', { onRequest: [app.authenticate] }, async (req, reply) => {
@@ -154,13 +200,14 @@ export default async function bookingRoutes(app) {
 
     if (!b || b.userId !== req.user.sub) return reply.code(404).send({ error: 'Reserva não encontrada' });
     if (b.paymentMode !== 'split') return reply.code(400).send({ error: 'Esta reserva não é dividida' });
-    if (b.shares.length >= b.splitCount) return reply.code(409).send({ error: 'Todas as cotas já foram preenchidas' });
+    const held = heldShares(b.shares);
+    if (held.length >= b.splitCount) return reply.code(409).send({ error: 'Todas as cotas já foram preenchidas' });
     if (b.shares.some(s => s.userId === userId)) return reply.code(409).send({ error: 'Usuário já convidado' });
 
     const guest = await prisma.user.findUnique({ where: { id: userId } });
     if (!guest) return reply.code(404).send({ error: 'Usuário não encontrado' });
 
-    const amount = shareAt(b.totalAmount, b.splitCount, b.shares.length);
+    const amount = shareAt(b.totalAmount, b.splitCount, held.length);
     const share = await prisma.splitShare.create({
       data: {
         bookingId: b.id,
@@ -194,6 +241,9 @@ export default async function bookingRoutes(app) {
       where: { id: share.id },
       data: { status: 'committed', method: 'pix' },
     });
+    // Sem isto, fechar as cotas pelo app nunca confirmava a reserva — só o
+    // caminho do link público e o webhook de pagamento confirmavam.
+    await maybeConfirm(share.bookingId);
     return { success: true };
   });
 
@@ -211,21 +261,30 @@ export default async function bookingRoutes(app) {
       where: { id: req.params.id },
       include: { shares: true, user: true },
     });
-    if (!b || b.userId !== req.user.sub) return reply.code(404).send({ error: 'Reserva não encontrada' });
-    
-    const existing = b.shares.find(s => s.userId === req.user.sub);
+    if (!b) return reply.code(404).send({ error: 'Reserva não encontrada' });
+
+    // Antes só o organizador passava aqui, então o participante não conseguia
+    // pagar a própria cota. Agora quem tem cota paga a dele.
+    const me = req.user.sub;
+    const existing = b.shares.find((s) => s.userId === me);
+    const isOrganizer = b.userId === me;
+    if (!isOrganizer && !existing) return reply.code(404).send({ error: 'Reserva não encontrada' });
+    if (existing && existing.status === 'requested')
+      return reply.code(409).send({ error: 'Seu pedido ainda não foi aceito pelo organizador' });
+
     if (existing) {
       await prisma.splitShare.update({
         where: { id: existing.id },
         data: { status: 'paid', method: 'pix' },
       });
     } else {
-      if (b.shares.length >= b.splitCount) return reply.code(409).send({ error: 'As cotas já foram preenchidas' });
-      const amount = shareAt(b.totalAmount, b.splitCount, b.shares.length);
+      const held = heldShares(b.shares);
+      if (held.length >= b.splitCount) return reply.code(409).send({ error: 'As cotas já foram preenchidas' });
+      const amount = shareAt(b.totalAmount, b.splitCount, held.length);
       await prisma.splitShare.create({
         data: {
           bookingId: b.id,
-          userId: req.user.sub,
+          userId: me,
           name: b.user.name,
           phone: b.user.phone,
           method: 'pix',
@@ -234,6 +293,78 @@ export default async function bookingRoutes(app) {
         },
       });
     }
+    await maybeConfirm(b.id);
+    return { success: true };
+  });
+
+  // ---- Pedir para entrar num racha aberto ------------------------------------
+  // O jogador pede, o organizador aceita. Enquanto está `requested` a cota não
+  // ocupa vaga nem entra no cálculo do valor (ver heldShares em services/booking).
+
+  app.post('/bookings/:id/join-request', { onRequest: [app.authenticate] }, async (req, reply) => {
+    const me = req.user.sub;
+    const b = await prisma.booking.findUnique({
+      where: { id: req.params.id },
+      include: { shares: true },
+    });
+    if (!b) return reply.code(404).send({ error: 'Racha não encontrado' });
+    if (b.userId === me) return reply.code(400).send({ error: 'Você é o organizador deste racha' });
+    if (b.paymentMode !== 'split' || !b.isPublic)
+      return reply.code(400).send({ error: 'Este racha não está aberto para entrada' });
+    if (b.status === 'cancelled') return reply.code(410).send({ error: 'Racha cancelado' });
+    if (b.shares.some((s) => s.userId === me))
+      return reply.code(409).send({ error: 'Você já está neste racha' });
+    if (heldShares(b.shares).length >= b.spotsNeeded)
+      return reply.code(409).send({ error: 'Não há mais vagas' });
+
+    const user = await prisma.user.findUnique({ where: { id: me } });
+    const share = await prisma.splitShare.create({
+      data: {
+        bookingId: b.id,
+        userId: me,
+        name: user.name,
+        phone: user.phone,
+        method: 'pix',
+        // Valor provisório: recalculado na aprovação, quando o índice da cota
+        // finalmente existe.
+        amount: shareAt(b.totalAmount, b.splitCount || 1, heldShares(b.shares).length),
+        status: 'requested',
+      },
+    });
+    return reply.code(201).send({ share });
+  });
+
+  app.post('/bookings/:id/requests/:shareId/approve', { onRequest: [app.authenticate] }, async (req, reply) => {
+    const b = await prisma.booking.findUnique({
+      where: { id: req.params.id },
+      include: { shares: true },
+    });
+    if (!b || b.userId !== req.user.sub) return reply.code(404).send({ error: 'Reserva não encontrada' });
+
+    const request = b.shares.find((s) => s.id === req.params.shareId && s.status === 'requested');
+    if (!request) return reply.code(404).send({ error: 'Pedido não encontrado' });
+
+    const held = heldShares(b.shares);
+    if (held.length >= b.splitCount) return reply.code(409).send({ error: 'Todas as cotas já foram preenchidas' });
+
+    await prisma.splitShare.update({
+      where: { id: request.id },
+      // O valor gravado no pedido usou um índice velho — agora que a cota entra
+      // de fato na conta, recalcula com a posição real.
+      data: { status: 'pending', amount: shareAt(b.totalAmount, b.splitCount, held.length) },
+    });
+    await maybeConfirm(b.id);
+    return { success: true };
+  });
+
+  app.post('/bookings/:id/requests/:shareId/reject', { onRequest: [app.authenticate] }, async (req, reply) => {
+    const b = await prisma.booking.findUnique({ where: { id: req.params.id }, include: { shares: true } });
+    if (!b || b.userId !== req.user.sub) return reply.code(404).send({ error: 'Reserva não encontrada' });
+
+    const request = b.shares.find((s) => s.id === req.params.shareId && s.status === 'requested');
+    if (!request) return reply.code(404).send({ error: 'Pedido não encontrado' });
+
+    await prisma.splitShare.delete({ where: { id: request.id } });
     return { success: true };
   });
 
